@@ -3,10 +3,10 @@ BitCaine5 the mining engine meets æternity blockchain technology
 
 have found a solution for multi multi cpu gpu mining!!!
 
-NO            | NO                | NO                              | YES
-------------- | ----------------- | ------------------------------- | -----------------
-**NO DOCKER** | **NO EXTRA VM's** | **NO SOURCE CODE MANIPULATION** | **only one node**
-table: 1
+NO            | NO                | NO                               | YES
+------------- | ----------------- | -------------------------------- | -----------------
+**NO DOCKER** | **NO EXTRA VM's** | **NO SOURCE CODE MANIPULATION**  | **only one node**
+table: 1      |                   | **NO CONFIG (yaml)MODIFICATION** | 
 ## How does it work?
 More next week, will talk to the devs on Monday
 
