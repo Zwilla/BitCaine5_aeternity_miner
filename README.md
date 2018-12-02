@@ -40,8 +40,16 @@ than on instance on one physical machine
 
 ## How long does it take to setup
 * less then a minute
+* and +- one hour
+* I will publish the scripts later
 
 ## Community Edition and paid Version
 * full source code control
 
+## Do I have to install any BitCain binary?
+* **Yes! You have to build it always your self!!!**
+
+## Why will I pay for the software if I can get for free?
+* because I need your support to develop and you are not an idiot
+* No support No software
 
