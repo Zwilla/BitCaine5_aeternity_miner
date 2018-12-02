@@ -24,15 +24,20 @@ MIX 50 to 100  | TWO           | need support  | YES    | NO     | LINUX  | GPL 
 +50 x MIX      | +2            | need support  | YES    | NO     | LINUX  | GPL & PAID
 table: 2
 
+**as faster your server and as faster your network as less physical servers you need**
+
 ### You have 1 to a million cPUs
 * it will work !
 * you need x nodes(see table 2) to manage them all, there a several solutions to run more 
-than on instance on one physical machine
+than one EPOCH instance on one physical machine
 
 ### You have 1 to a million gPUs
 * it will work !
 * you need x nodes(see table 2) to manage them all, there a several solutions to run more 
-than on instance on one physical machine
+than one EPOCH instance on one physical machine
+
+ 
+---
 
 ### You will run a hole farm with a million CPUs and GPUs
 * it will work !
