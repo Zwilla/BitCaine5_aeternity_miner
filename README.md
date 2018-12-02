@@ -24,6 +24,8 @@ MIX 50 to 100  | TWO           | need support  | YES    | NO     | LINUX  | GPL 
 +50 x MIX      | +2            | need support  | YES    | NO     | LINUX  | GPL & PAID
 table: 2
 
+**as faster your server and as faster your network as less physical servers you need**
+
 Mining APP     | PHYSICAL | VM
 -------------- | -------- | -------
 mean29-generic | YES      | YES
@@ -34,7 +36,8 @@ mean15-generic | YES      | YES
 lean15-generic | YES      | YES
 cuda29         | YES      | YES
 
-**as faster your server and as faster your network as less physical servers you need**
+**one node per mining app!!!**
+
 
 ### You have 1 to a million cPUs
 * it will work !
