@@ -791,13 +791,14 @@ int main(int argc, char **argv)
     char header[HEADERLEN];
     uint32_t len;
     char my_solution[1024];
-    int c;
+    int opt;
 
     memset(header, 0, sizeof(header));
-    
-    while ((c = getopt(argc, argv, "sb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:g:")) != -1)
+    static const char *optString = "sb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:gb:";
+
+    while ((opt = getopt(argc, argv, optString)) != -1)
     {
-        switch (c)
+        switch (opt)
         {
            case 's':
                fprintf(stderr, "SYNOPSIS\n  cuda%d [-d device] [-E 0-2] [-h hexheader] [-m trims] [-n nonce] [-r range] [-U seedAblocks] [-u seedAthreads] [-v seedBthreads] [-w Trimthreads] [-y Tailthreads] [-Z recoverblocks] [-z recoverthreads]\n", NODEBITS);
@@ -943,7 +944,11 @@ int main(int argc, char **argv)
             }        
         }
     }
-
-    fprintf(stderr, "%d total solutions with %d nonces\n", sum_n_sols,range);
+    if (will_debug)
+    {
+        fprintf(stderr, "%d total solutions with %d nonces\n", sum_n_sols,range);
+        return 0;
+    }
+    fprintf(stderr, "%d total solutions\n", sum_n_sols);
     return 0;
 }
