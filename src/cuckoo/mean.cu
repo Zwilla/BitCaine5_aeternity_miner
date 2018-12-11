@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <chrono>
 
+
 #ifdef _WIN32
 #include "../windows/getopt.h"
 #else
@@ -781,7 +782,6 @@ struct solver_ctx
 // arbitrary length of header hashed into siphash key
 #define HEADERLEN 80
 
-
 int main(int argc, char **argv)
 {
     trimparams tp;
@@ -792,14 +792,18 @@ int main(int argc, char **argv)
     uint32_t len;
     char my_solution[1024];
     int opt;
+    bool cpuload = false;
 
     memset(header, 0, sizeof(header));
-    static const char *optString = "sb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:gb:";
+    static const char *optString = "scb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:gb:";
 
     while ((opt = getopt(argc, argv, optString)) != -1)
     {
         switch (opt)
         {
+           case 'c':
+               cpuload = true;
+               break;
            case 's':
                fprintf(stderr, "SYNOPSIS\n  cuda%d [-d device] [-E 0-2] [-h hexheader] [-m trims] [-n nonce] [-r range] [-U seedAblocks] [-u seedAthreads] [-v seedBthreads] [-w Trimthreads] [-y Tailthreads] [-Z recoverblocks] [-z recoverthreads]\n", NODEBITS);
                fprintf(stderr, "DEFAULTS\n  cuda%d -d %d -E %d -h \"\" -m %d -n %d -r %d -U %d -u %d -v %d -w %d -y %d -Z %d -z %d\n", NODEBITS, device, tp.expand, tp.ntrims, nonce, range, tp.genA.blocks, tp.genA.tpb, tp.genB.tpb, tp.trim.tpb, tp.tail.tpb, tp.recover.blocks, tp.recover.tpb);
@@ -858,6 +862,18 @@ int main(int argc, char **argv)
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, device);
 
+    cudaSetDevice(device);
+    if (cpuload)
+    {
+        // may be for old and pure systems but not for highspeed machines!!
+        cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+    }
+    else
+    {
+        // best performance
+        cudaSetDeviceFlags(cudaDeviceScheduleYield);
+    }
+
     if (will_debug)
     {
         uint64_t dbytes = prop.totalGlobalMem;
@@ -875,7 +891,6 @@ int main(int argc, char **argv)
         }
         fprintf(stderr, ") with 50%% edges, %d*%d buckets, %d trims, and %d thread blocks.\n", NX, NY, tp.ntrims, NX);
     }
-
 
     solver_ctx ctx(tp);
 
