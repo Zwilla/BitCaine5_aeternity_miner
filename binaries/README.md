@@ -1,4 +1,5 @@
-## Example:
+## Example for lazy people:
+which have no time to build
 
 cd into the directory where you have your binary, then
 
