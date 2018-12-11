@@ -14,3 +14,6 @@ mv $FILENAME cuda29
 ```
 
 you can do it on the fly without restarting your node, just replace the binary
+
+
+donations are welcome: ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ
