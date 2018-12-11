@@ -409,13 +409,8 @@ struct edgetrimmer {
     cudaMalloc((void**)&indexesE2, indexesSize);
 
     sizeA = ROW_EDGES_A * NX * (tp.expand > 0 ? sizeof(uint32_t) : sizeof(uint2));
-    fprintf(stderr, "sizeA = %zx \n",sizeA);
-
     sizeB = ROW_EDGES_B * NX * (tp.expand > 1 ? sizeof(uint32_t) : sizeof(uint2));
-    fprintf(stderr, "sizeB = %zx \n",sizeB);
-
     const size_t bufferSize = sizeA + sizeB;
-    fprintf(stderr, "bufferSize = %zx \n",bufferSize);
 
     cudaMalloc((void**)&bufferA, bufferSize);
 
@@ -443,26 +438,23 @@ struct edgetrimmer {
   {
     cudaMemcpy(dt, this, sizeof(edgetrimmer), cudaMemcpyHostToDevice);
 
-  
     cudaMemset(indexesE, 0, indexesSize);
     cudaMemset(indexesE2, 0, indexesSize);
+
     cudaMemcpy(dipkeys, &sipkeys, sizeof(sipkeys), cudaMemcpyHostToDevice);
   
     cudaDeviceSynchronize();
 
-
-  
     if (tp.expand == 0)
     {
         SeedA<EDGES_A, uint2><<<tp.genA.blocks, tp.genA.tpb>>>(*dipkeys, bufferAB, (int *)indexesE);
     }
     else
     {
-        SeedA<EDGES_A,   uint32_t><<<tp.genA.blocks, tp.genA.tpb>>>(*dipkeys, bufferAB, (int *)indexesE);
+        SeedA<EDGES_A, uint32_t><<<tp.genA.blocks, tp.genA.tpb>>>(*dipkeys, bufferAB, (int *)indexesE);
     }
   
     cudaDeviceSynchronize();
-
 
     const uint32_t halfA = sizeA/2 / sizeof(uint4);
     const uint32_t halfE = NX2 / 2;
@@ -474,8 +466,8 @@ struct edgetrimmer {
     }
     else
     {
-      SeedB<EDGES_A,   uint32_t><<<tp.genB.blocks/2, tp.genB.tpb>>>(*dipkeys, (const   uint32_t *)bufferAB, bufferA, (const int *)indexesE, indexesE2);
-      SeedB<EDGES_A,   uint32_t><<<tp.genB.blocks/2, tp.genB.tpb>>>(*dipkeys, (const   uint32_t *)(bufferAB+halfA), bufferA+halfA, (const int *)(indexesE+halfE), indexesE2+halfE);
+      SeedB<EDGES_A, uint32_t><<<tp.genB.blocks/2, tp.genB.tpb>>>(*dipkeys, (const   uint32_t *)bufferAB, bufferA, (const int *)indexesE, indexesE2);
+      SeedB<EDGES_A, uint32_t><<<tp.genB.blocks/2, tp.genB.tpb>>>(*dipkeys, (const   uint32_t *)(bufferAB+halfA), bufferA+halfA, (const int *)(indexesE+halfE), indexesE2+halfE);
     }
 
     cudaDeviceSynchronize();
@@ -526,9 +518,12 @@ struct edgetrimmer {
   
     Tail<EDGES_B/4><<<tp.tail.blocks, tp.tail.tpb>>>((const uint2 *)bufferA, (uint2 *)bufferB, (const int *)indexesE2, (int *)indexesE);
     cudaMemcpy(hostA, indexesE, NX * NY * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
     cudaDeviceSynchronize();
+
     return hostA[0];
   }
+
 };
 
 #define IDXSHIFT 10
@@ -544,21 +539,28 @@ class cuckoo_hash
     public:
         uint64_t *cuckoo;
 
-        cuckoo_hash() {
+        cuckoo_hash()
+        {
           cuckoo = new uint64_t[CUCKOO_SIZE];
         }
-        ~cuckoo_hash() {
+
+        ~cuckoo_hash()
+        {
           delete[] cuckoo;
         }
-        void set(node_t u, node_t v) {
-          uint64_t niew = (uint64_t)u << NODEBITS | v;
-          for (node_t ui = u >> IDXSHIFT; ; ui = (ui+1) & CUCKOO_MASK) {
-            uint64_t old = cuckoo[ui];
-            if (old == 0 || (old >> NODEBITS) == (u & KEYMASK)) {
-              cuckoo[ui] = niew;
-              return;
+
+        void set(node_t u, node_t v)
+        {
+            uint64_t niew = (uint64_t)u << NODEBITS | v;
+            for (node_t ui = u >> IDXSHIFT; ; ui = (ui+1) & CUCKOO_MASK)
+            {
+                uint64_t old = cuckoo[ui];
+                if (old == 0 || (old >> NODEBITS) == (u & KEYMASK))
+                {
+                    cuckoo[ui] = niew;
+                    return;
+                }
             }
-          }
         }
 
         node_t operator[](node_t u) const
@@ -578,7 +580,6 @@ class cuckoo_hash
                 }
             }
         }
-
 };
 
 const static uint32_t MAXPATHLEN = 8 << ((NODEBITS+2)/3);
@@ -651,6 +652,7 @@ struct solver_ctx
       Recovery<<<trimmer->tp.recover.blocks, trimmer->tp.recover.tpb>>>(*trimmer->dipkeys, trimmer->bufferA, (int *)trimmer->indexesE2);
 
       cudaMemcpy(&sols[sols.size()-PROOFSIZE], trimmer->indexesE2, PROOFSIZE * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
       cudaDeviceSynchronize();
 
       qsort(&sols[sols.size()-PROOFSIZE], PROOFSIZE, sizeof(uint32_t), nonce_cmp);
@@ -659,19 +661,24 @@ struct solver_ctx
     uint32_t path(uint32_t u, uint32_t *us)
     {
       uint32_t nu, u0 = u;
-      for (nu = 0; u; u = (*cuckoo)[u]) {
-        if (nu >= MAXPATHLEN) {
+      for (nu = 0; u; u = (*cuckoo)[u])
+      {
+        if (nu >= MAXPATHLEN)
+        {
           while (nu-- && us[nu] != u) ;
           if (~nu)
           {
             printf("illegal %4d-cycle from node %d\n", MAXPATHLEN-nu, u0);
             exit(0);
           }
+
           printf("maximum path length exceeded\n");
           return 0; // happens once in a million runs or so; signal trouble
         }
+
         us[nu++] = u;
       }
+
       return nu;
     }
 
@@ -767,12 +774,13 @@ int main(int argc, char **argv)
     uint32_t nonce = 0;
     uint32_t range = 1;
     uint32_t device = 0;
+    bool will_debug = false;
     char header[HEADERLEN];
     uint32_t len;
     int c;
 
     memset(header, 0, sizeof(header));
-    while ((c = getopt(argc, argv, "sb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:")) != -1) {
+    while ((c = getopt(argc, argv, "sb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:g:")) != -1) {
       switch (c) {
         case 's':
           printf("SYNOPSIS\n  cuda%d [-d device] [-E 0-2] [-h hexheader] [-m trims] [-n nonce] [-r range] [-U seedAblocks] [-u seedAthreads] [-v seedBthreads] [-w Trimthreads] [-y Tailthreads] [-Z recoverblocks] [-z recoverthreads]\n", NODEBITS);
@@ -783,8 +791,10 @@ int main(int argc, char **argv)
           break;
         case 'E':
           tp.expand = atoi(optarg);
-         //assert(tp.expand <= 2);
           break;
+        case 'g':
+           will_debug = true;
+           break;
         case 'h':
           len = strlen(optarg)/2;
          //assert(len <= sizeof(header));
@@ -829,26 +839,37 @@ int main(int argc, char **argv)
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, device);
 
-    uint64_t dbytes = prop.totalGlobalMem;
-    int dunit;
-    for (dunit=0; dbytes >= 10240; dbytes>>=10,dunit++) ;
-
-    printf("%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
-    cudaSetDevice(device);
-
-    printf("Looking for %d-cycle on cuckoo%d(\"%s\",%d", PROOFSIZE, NODEBITS, header, nonce);
-    if (range > 1)
-      printf("-%d", nonce+range-1);
-    printf(") with 50%% edges, %d*%d buckets, %d trims, and %d thread blocks.\n", NX, NY, tp.ntrims, NX);
+    if (will_debug)
+    {
+        uint64_t dbytes = prop.totalGlobalMem;
+        int dunit;
+        for (dunit=0; dbytes >= 10240; dbytes>>=10,dunit++) ;
+    
+        printf("%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
+        cudaSetDevice(device);
+    
+        printf("Looking for %d-cycle on cuckoo%d(\"%s\",%d", PROOFSIZE, NODEBITS, header, nonce);
+        
+        if (range > 1)
+        {
+            printf("-%d", nonce+range-1);
+        }
+        printf(") with 50%% edges, %d*%d buckets, %d trims, and %d thread blocks.\n", NX, NY, tp.ntrims, NX);
+    }
+    
 
     solver_ctx ctx(tp);
 
-    uint64_t bytes = ctx.trimmer->globalbytes();
-    int unit;
-    for (unit=0; bytes >= 10240; bytes>>=10,unit++) ;
-
-    fprintf(stderr, "Using %d%cB of global memory.\n", (uint32_t)bytes, " KMGT"[unit]);
-
+    if (will_debug)
+    {
+        uint64_t bytes = ctx.trimmer->globalbytes();
+        int unit;
+        
+        for (unit=0; bytes >= 10240; bytes>>=10,unit++) ;
+    
+        fprintf(stderr, "Using %d%cB of global memory.\n", (uint32_t)bytes, " KMGT"[unit]);
+    }
+    
     cudaSetDevice(device);
 
     uint32_t sum_n_sols = 0;
@@ -856,41 +877,50 @@ int main(int argc, char **argv)
     for (int r = 0; r < range; r++)
     {
       ctx.set_header_nonce(header, sizeof(header), nonce + r);
-      fprintf(stderr,"nonce %d k0 k1 k2 k3 %zx %zx %zx %zx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
+      
+      if (will_debug)
+      {
+          fprintf(stderr,"nonce %d k0 k1 k2 k3 %zx %zx %zx %zx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
+      }
+      
       uint32_t n_sols = ctx.solve();
 
       for (unsigned s = 0; s < n_sols; s++)
       {
-        printf("Solution");
+        fprintf(stderr, "Solution");
+        
         uint32_t* prf = &ctx.sols[s * PROOFSIZE];
 
         for (uint32_t i = 0; i < PROOFSIZE; i++)
         {
-            printf(" %jx", (uintmax_t)prf[i]);
+            fprintf(stderr, " %jx", (uintmax_t)prf[i]);
         }
-
-        printf("\n");
-        int pow_rc = verify_solution(prf, &ctx.trimmer->sipkeys);
-
-        if (pow_rc == POW_OK)
+        sum_n_sols += n_sols;
+        fprintf(stderr, "\n");
+        
+        if (will_debug)
         {
-          printf("Verified with cycle_hash ");
-          unsigned char cycle_hash[32];
-          blake2b((void *)cycle_hash, sizeof(cycle_hash), (const void *)prf, sizeof(proof), 0, 0);
-
-          for (int i=0; i<32; i++)
-          {
-              printf("%02x", cycle_hash[i]);
-          }
-          printf("\n");
+            int pow_rc = verify_solution(prf, &ctx.trimmer->sipkeys);
+        
+            if (pow_rc == POW_OK)
+            {
+              printf("Verified with cycle_hash ");
+              unsigned char cycle_hash[32];
+              blake2b((void *)cycle_hash, sizeof(cycle_hash), (const void *)prf, sizeof(proof), 0, 0);
+        
+              for (int i=0; i<32; i++)
+              {
+                  printf("%02x", cycle_hash[i]);
+              }
+              printf("\n");
+            }
+            else
+            {
+                fprintf(stderr,"FAILED due to %s\n", errstr[pow_rc]);
+            }
         }
-        else
-        {
-            fprintf(stderr,"FAILED due to %s\n", errstr[pow_rc]);
-        }
-      }
-
-      sum_n_sols += n_sols;
+        
+      } 
     }
 
     printf("%d total solutions\n", sum_n_sols);
