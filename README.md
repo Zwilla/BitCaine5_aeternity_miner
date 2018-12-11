@@ -74,5 +74,5 @@ than one EPOCH instance on one physical machine
 donations are welcome: ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ
 
 ## And yes the binary is not all
-but before I resceived not one cent, I will not publish the rest of the how to's!!!
+but before I received not one cent, I will not publish the rest of the how to's!!!
 
