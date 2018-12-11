@@ -21,6 +21,8 @@
 #include "../crypto/siphash.cuh"
 #include "../crypto/blake2.h"
 
+bool will_debug = false;
+
 typedef uint32_t node_t;
 typedef uint64_t nonce_t;
 
@@ -169,7 +171,7 @@ __global__ void SeedB(const siphash_keys &sipkeys, const EdgeOut * __restrict__ 
   const int TMPPERLL4 = sizeof(uint4) / sizeof(EdgeOut);
   __shared__ int counters[NX];
 
-  // if (group>=0&&lid==0) printf("group  %d  -\n", group);
+  // if (group>=0&&lid==0) fprintf(stderr, "group  %d  -\n", group);
   for (int col = lid; col < NX; col += dim)
     counters[col] = 0;
   __syncthreads();
@@ -298,7 +300,7 @@ __global__ void Round(const int round, const siphash_keys &sipkeys, const EdgeIn
       }
     }
   }
-  // if (group==0&&lid==0) printf("round %d cnt(0,0) %d\n", round, sourceIndexes[0]);
+  // if (group==0&&lid==0) fprintf(stderr, "round %d cnt(0,0) %d\n", round, sourceIndexes[0]);
 }
 
 template<int maxIn>
@@ -668,11 +670,11 @@ struct solver_ctx
           while (nu-- && us[nu] != u) ;
           if (~nu)
           {
-            printf("illegal %4d-cycle from node %d\n", MAXPATHLEN-nu, u0);
+            fprintf(stderr, "illegal %4d-cycle from node %d\n", MAXPATHLEN-nu, u0);
             exit(0);
           }
 
-          printf("maximum path length exceeded\n");
+          fprintf(stderr, "maximum path length exceeded\n");
           return 0; // happens once in a million runs or so; signal trouble
         }
 
@@ -699,7 +701,11 @@ struct solver_ctx
           for (nu -= min, nv -= min; us[nu] != vs[nv]; nu++, nv++) ;
 
           const uint32_t len = nu + nv + 1;
-          printf("%4d-cycle found\n", len);
+
+          if(will_debug)
+          {
+              fprintf(stderr, "%4d-cycle found\n", len);
+          }
 
           if (len == PROOFSIZE)
           {
@@ -710,7 +716,9 @@ struct solver_ctx
         else if (nu < nv)
         {
           while (nu--)
-            cuckoo->set(us[nu+1], us[nu]);
+          {
+              cuckoo->set(us[nu+1], us[nu]);
+          }
           cuckoo->set(u0, v0);
         }
         else
@@ -744,7 +752,7 @@ struct solver_ctx
 
       if (nedges > MAXEDGES)
       {
-        printf("OOPS; losing %d edges beyond MAXEDGES=%d\n", nedges-MAXEDGES, MAXEDGES);
+        fprintf(stderr, "OOPS; losing %d edges beyond MAXEDGES=%d\n", nedges-MAXEDGES, MAXEDGES);
         nedges = MAXEDGES;
       }
 
@@ -759,7 +767,12 @@ struct solver_ctx
       time1 = std::chrono::high_resolution_clock::now();
       duration = std::chrono::duration_cast<ms>(time1 - time0);
       timems2 = duration.count();
-      printf("findcycles edges %d time %d ms total %d ms\n", nedges, timems2, timems+timems2);
+      
+      if(will_debug)
+      {
+         fprintf(stderr, "findcycles edges %d time %d ms total %d ms\n", nedges, timems2, timems+timems2);
+      }
+      
       return sols.size() / PROOFSIZE;
     }
 
@@ -768,69 +781,74 @@ struct solver_ctx
 // arbitrary length of header hashed into siphash key
 #define HEADERLEN 80
 
+
 int main(int argc, char **argv)
 {
     trimparams tp;
     uint32_t nonce = 0;
     uint32_t range = 1;
     uint32_t device = 0;
-    bool will_debug = false;
     char header[HEADERLEN];
     uint32_t len;
+    char my_solution[1024];
     int c;
 
     memset(header, 0, sizeof(header));
-    while ((c = getopt(argc, argv, "sb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:g:")) != -1) {
-      switch (c) {
-        case 's':
-          printf("SYNOPSIS\n  cuda%d [-d device] [-E 0-2] [-h hexheader] [-m trims] [-n nonce] [-r range] [-U seedAblocks] [-u seedAthreads] [-v seedBthreads] [-w Trimthreads] [-y Tailthreads] [-Z recoverblocks] [-z recoverthreads]\n", NODEBITS);
-          printf("DEFAULTS\n  cuda%d -d %d -E %d -h \"\" -m %d -n %d -r %d -U %d -u %d -v %d -w %d -y %d -Z %d -z %d\n", NODEBITS, device, tp.expand, tp.ntrims, nonce, range, tp.genA.blocks, tp.genA.tpb, tp.genB.tpb, tp.trim.tpb, tp.tail.tpb, tp.recover.blocks, tp.recover.tpb);
-          exit(0);
-        case 'd':
-          device = atoi(optarg);
-          break;
-        case 'E':
-          tp.expand = atoi(optarg);
-          break;
-        case 'g':
-           will_debug = true;
-           break;
-        case 'h':
-          len = strlen(optarg)/2;
-         //assert(len <= sizeof(header));
-          for (uint32_t i=0; i<len; i++)
-            sscanf(optarg+2*i, "%2hhx", header+i); // hh specifies storage of a single byte
-          break;
-        case 'n':
-          nonce = atoi(optarg);
-          break;
-        case 'm':
-          tp.ntrims = atoi(optarg) & -2; // make even as required by solve()
-          break;
-        case 'r':
-          range = atoi(optarg);
-          break;
-        case 'U':
-          tp.genA.blocks = atoi(optarg);
-          break;
-        case 'u':
-          tp.genA.tpb = atoi(optarg);
-          break;
-        case 'v':
-          tp.genB.tpb = atoi(optarg);
-          break;
-        case 'w':
-          tp.trim.tpb = atoi(optarg);
-          break;
-        case 'y':
-          tp.tail.tpb = atoi(optarg);
-          break;
-        case 'Z':
-          tp.recover.blocks = atoi(optarg);
-          break;
-        case 'z':
-          tp.recover.tpb = atoi(optarg);
-          break;
+    
+    while ((c = getopt(argc, argv, "sb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:g:")) != -1)
+    {
+        switch (c)
+        {
+           case 's':
+               fprintf(stderr, "SYNOPSIS\n  cuda%d [-d device] [-E 0-2] [-h hexheader] [-m trims] [-n nonce] [-r range] [-U seedAblocks] [-u seedAthreads] [-v seedBthreads] [-w Trimthreads] [-y Tailthreads] [-Z recoverblocks] [-z recoverthreads]\n", NODEBITS);
+               fprintf(stderr, "DEFAULTS\n  cuda%d -d %d -E %d -h \"\" -m %d -n %d -r %d -U %d -u %d -v %d -w %d -y %d -Z %d -z %d\n", NODEBITS, device, tp.expand, tp.ntrims, nonce, range, tp.genA.blocks, tp.genA.tpb, tp.genB.tpb, tp.trim.tpb, tp.tail.tpb, tp.recover.blocks, tp.recover.tpb);
+               exit(0);
+           case 'd':
+               device = atoi(optarg);
+               break;
+           case 'E':
+               tp.expand = atoi(optarg);
+               break;
+           case 'g':
+                will_debug = true;
+                break;
+           case 'h':
+               len = strlen(optarg)/2;
+               for (uint32_t i=0; i<len; i++)
+               {
+                   sscanf(optarg+2*i, "%2hhx", header+i); // hh specifies storage of a single byte
+               }
+               break;
+           case 'n':
+               nonce = atoi(optarg);
+               break;
+           case 'm':
+               tp.ntrims = atoi(optarg) & -2; // make even as required by solve()
+               break;
+           case 'r':
+               range = atoi(optarg);
+               break;
+           case 'U':
+               tp.genA.blocks = atoi(optarg);
+               break;
+           case 'u':
+               tp.genA.tpb = atoi(optarg);
+               break;
+           case 'v':
+               tp.genB.tpb = atoi(optarg);
+               break;
+           case 'w':
+               tp.trim.tpb = atoi(optarg);
+               break;
+           case 'y':
+               tp.tail.tpb = atoi(optarg);
+               break;
+           case 'Z':
+               tp.recover.blocks = atoi(optarg);
+               break;
+           case 'z':
+               tp.recover.tpb = atoi(optarg);
+               break;
       }
     }
 
@@ -844,19 +862,19 @@ int main(int argc, char **argv)
         uint64_t dbytes = prop.totalGlobalMem;
         int dunit;
         for (dunit=0; dbytes >= 10240; dbytes>>=10,dunit++) ;
-    
-        printf("%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
+
+        fprintf(stderr, "%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
         cudaSetDevice(device);
-    
-        printf("Looking for %d-cycle on cuckoo%d(\"%s\",%d", PROOFSIZE, NODEBITS, header, nonce);
-        
+
+        fprintf(stderr, "Looking for %d-cycle on cuckoo%d(\"%s\",%d", PROOFSIZE, NODEBITS, header, nonce);
+
         if (range > 1)
         {
-            printf("-%d", nonce+range-1);
+            fprintf(stderr, "-%d", nonce+range-1);
         }
-        printf(") with 50%% edges, %d*%d buckets, %d trims, and %d thread blocks.\n", NX, NY, tp.ntrims, NX);
+        fprintf(stderr, ") with 50%% edges, %d*%d buckets, %d trims, and %d thread blocks.\n", NX, NY, tp.ntrims, NX);
     }
-    
+
 
     solver_ctx ctx(tp);
 
@@ -864,65 +882,68 @@ int main(int argc, char **argv)
     {
         uint64_t bytes = ctx.trimmer->globalbytes();
         int unit;
-        
+
         for (unit=0; bytes >= 10240; bytes>>=10,unit++) ;
-    
+
         fprintf(stderr, "Using %d%cB of global memory.\n", (uint32_t)bytes, " KMGT"[unit]);
     }
-    
+
     cudaSetDevice(device);
 
     uint32_t sum_n_sols = 0;
 
     for (int r = 0; r < range; r++)
     {
-      ctx.set_header_nonce(header, sizeof(header), nonce + r);
-      
-      if (will_debug)
-      {
-          fprintf(stderr,"nonce %d k0 k1 k2 k3 %zx %zx %zx %zx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
-      }
-      
-      uint32_t n_sols = ctx.solve();
-
-      for (unsigned s = 0; s < n_sols; s++)
-      {
-        fprintf(stderr, "Solution");
-        
-        uint32_t* prf = &ctx.sols[s * PROOFSIZE];
-
-        for (uint32_t i = 0; i < PROOFSIZE; i++)
-        {
-            fprintf(stderr, " %jx", (uintmax_t)prf[i]);
-        }
-        sum_n_sols += n_sols;
-        fprintf(stderr, "\n");
+        my_solution[0]=0;
+        ctx.set_header_nonce(header, sizeof(header), nonce + r);
         
         if (will_debug)
         {
-            int pow_rc = verify_solution(prf, &ctx.trimmer->sipkeys);
-        
-            if (pow_rc == POW_OK)
-            {
-              printf("Verified with cycle_hash ");
-              unsigned char cycle_hash[32];
-              blake2b((void *)cycle_hash, sizeof(cycle_hash), (const void *)prf, sizeof(proof), 0, 0);
-        
-              for (int i=0; i<32; i++)
-              {
-                  printf("%02x", cycle_hash[i]);
-              }
-              printf("\n");
-            }
-            else
-            {
-                fprintf(stderr,"FAILED due to %s\n", errstr[pow_rc]);
-            }
+            fprintf(stderr,"nonce %d k0 k1 k2 k3 %zx %zx %zx %zx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
         }
         
-      } 
+        uint32_t n_sols = ctx.solve();
+        
+        for (unsigned s = 0; s < n_sols; s++)
+        {
+            uint32_t* prf = &ctx.sols[s * PROOFSIZE];
+            
+            for (uint32_t i = 0; i < PROOFSIZE; i++)
+            {
+                char temps[512];
+                temps[0]=0;
+                sprintf(temps," %jx",(uintmax_t)prf[i]);
+                strcat(my_solution, temps);
+            }
+            
+            sum_n_sols += n_sols;
+            fprintf(stderr,"Solution%s\n",my_solution);
+            my_solution[0]=0;
+            
+            if (will_debug)
+            {
+                int pow_rc = verify_solution(prf, &ctx.trimmer->sipkeys);
+            
+                if (pow_rc == POW_OK)
+                {
+                  fprintf(stderr, "Verified with cycle_hash ");
+                  unsigned char cycle_hash[32];
+                  blake2b((void *)cycle_hash, sizeof(cycle_hash), (const void *)prf, sizeof(proof), 0, 0);
+            
+                  for (int i=0; i<32; i++)
+                  {
+                      fprintf(stderr, "%02x", cycle_hash[i]);
+                  }
+                  fprintf(stderr, "\n");
+                }
+                else
+                {
+                    fprintf(stderr,"FAILED due to %s\n", errstr[pow_rc]);
+                }
+            }        
+        }
     }
 
-    printf("%d total solutions\n", sum_n_sols);
+    fprintf(stderr, "%d total solutions with %d nonces\n", sum_n_sols,range);
     return 0;
 }
