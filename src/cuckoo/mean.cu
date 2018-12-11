@@ -881,7 +881,6 @@ int main(int argc, char **argv)
         for (dunit=0; dbytes >= 10240; dbytes>>=10,dunit++) ;
 
         fprintf(stderr, "%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
-        cudaSetDevice(device);
 
         fprintf(stderr, "Looking for %d-cycle on cuckoo%d(\"%s\",%d", PROOFSIZE, NODEBITS, header, nonce);
 
@@ -903,8 +902,6 @@ int main(int argc, char **argv)
 
         fprintf(stderr, "Using %d%cB of global memory.\n", (uint32_t)bytes, " KMGT"[unit]);
     }
-
-    cudaSetDevice(device);
 
     uint32_t sum_n_sols = 0;
 
