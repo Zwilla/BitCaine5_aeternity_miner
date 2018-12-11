@@ -409,13 +409,13 @@ struct edgetrimmer {
     cudaMalloc((void**)&indexesE2, indexesSize);
 
     sizeA = ROW_EDGES_A * NX * (tp.expand > 0 ? sizeof(uint32_t) : sizeof(uint2));
-    fprintf(stderr, "sizeA = %llx \n",sizeA);
+    fprintf(stderr, "sizeA = %zx \n",sizeA);
 
     sizeB = ROW_EDGES_B * NX * (tp.expand > 1 ? sizeof(uint32_t) : sizeof(uint2));
-    fprintf(stderr, "sizeB = %llx \n",sizeB);
+    fprintf(stderr, "sizeB = %zx \n",sizeB);
 
     const size_t bufferSize = sizeA + sizeB;
-    fprintf(stderr, "bufferSize = %llx \n",bufferSize);
+    fprintf(stderr, "bufferSize = %zx \n",bufferSize);
 
     cudaMalloc((void**)&bufferA, bufferSize);
 
@@ -856,7 +856,7 @@ int main(int argc, char **argv)
     for (int r = 0; r < range; r++)
     {
       ctx.set_header_nonce(header, sizeof(header), nonce + r);
-      fprintf(stderr,"nonce %d k0 k1 k2 k3 %llx %llx %llx %llx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
+      fprintf(stderr,"nonce %d k0 k1 k2 k3 %zx %zx %zx %zx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
       uint32_t n_sols = ctx.solve();
 
       for (unsigned s = 0; s < n_sols; s++)
