@@ -26,7 +26,8 @@ mining:
     beneficiary: "ak_0000000000000000YOUR_KEY0000000"
     cuckoo:
         miner:
-            executable: cuda29
+            executable: cuda29_GTX_1070
+            repeats: 600
             extra_args: ""
             instances: 2
             edge_bits: 29
