@@ -1,3 +1,12 @@
+# Debug mode hard deactivated on last binaries
+you will get just some lines like that:
+
+<0.2010.13>@aec_pow_cuckoo:generate_int:203 Executing cmd: "./cuda29_GTX_1070 -h 324D6F373754576B3546684B772F493865493343416B71497531492B624A4B6155567A6543424B3278414D3D -n 18335313330172576564 -r 120 -g -d 1"
+...
+2018-12-12 14:27:15.201 [debug] <0.1778.13>@aec_pow_cuckoo:parse_generation_result:481 5 total solutions of 120 nonces
+
+---
+
 # will update new binaries next 20 mminutes
 2018-12-12 14:27:14.482 [debug] <0.1774.13>@aec_pow_cuckoo:test_target:536 Hash of (<<50,193,194,157,209,166,90,131,129,57,17,212,40,148,210,142,51,65,92,57,135,75,227,54,116,253,165,127,199,18,189,211>>)
 2018-12-12 14:27:14.483 [debug] <0.1774.13>@aec_pow_cuckoo:parse_generation_result:477 Failed to meet target (505185084)
