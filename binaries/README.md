@@ -16,6 +16,42 @@ you can do it on the fly without restarting your node, just replace the binary
 
 
 donations are welcome: ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ
+### benchmark your card!!!
+* stop epoch
+* start benchmark
+    * time ./cuda29_generic_test -r 8
+    * repeat the benchmark until you are **under 5 seconds**
+    * -r = rounds. To loop and increment the nonce number.
+Example output:
+```    
+zwilla@master-node1:~/multi_gpu_final$ time /home/zwilla/ae_cuckoo/src/cuckoo/cuda29_GTX_1070 -r 5
+0 total solutions with 5 nonces
+
+real	0m4.453s
+user	0m1.019s
+sys	0m3.120s
+zwilla@master-node1:~/multi_gpu_final$ time /home/zwilla/ae_cuckoo/src/cuckoo/cuda29_GTX_1070 -r 6
+0 total solutions with 6 nonces
+
+real	**0m4.594s**
+user	0m1.337s
+sys	0m2.935s
+zwilla@master-node1:~/multi_gpu_final$ time /home/zwilla/ae_cuckoo/src/cuckoo/cuda29_GTX_1070 -r 7
+0 total solutions with 7 nonces
+
+real	0m5.262s
+user	0m1.510s
+sys	0m3.464s
+zwilla@master-node1:~/multi_gpu_final$ time /home/zwilla/ae_cuckoo/src/cuckoo/cuda29_GTX_1070 -r 8
+
+0 total solutions with 8 nonces
+
+real	0m5.666s
+user	0m1.762s
+sys	0m3.604s
+```
+see: real	**0m4.594s** so we select now repeats: 6
+
 
 ### epoch.yaml  example
 
@@ -26,7 +62,7 @@ mining:
     cuckoo:
         miner:
             executable: cuda29_GTX_1070
-            repeats: 600
+            repeats: 6
             extra_args: ""
             instances: 2
             edge_bits: 29
