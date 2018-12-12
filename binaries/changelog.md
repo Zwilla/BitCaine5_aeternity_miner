@@ -1,3 +1,45 @@
+# Debug Mode reenabeled use -g at your extra_args: "-g" to see the output
+* binaries updated
+
+**Example without Debug mode:** (slower)
+./cuda29_GTX_1070 -r 120 -h 324D6F373754576B3546684B772F493865493343416B71497531492B624A4B6155567A6543424B3278414D3D -n 18335313330172576564
+Solution(fe741e54426bc345) 1406157 253890b 25caede 29f6a1d 2d981aa 31e596b 433e85c 6df4880 71e2c6c 80936e0 923bb91 94f0688 9838477 9d18eb8 9e11837 c0c997e cc7bf17 d235c3e d4ce55c d55c310 e05c39a e8f0a6c f4aa877 fc1364b 102028aa 12f4b651 13f38290 14a7724f 14aaa16f 15130716 17c36072 183de165 18b2d2ae 1ab0e11d 1af15642 1b00663b 1b149249 1e037d82 1e5e2580 1ec08efb 1ec584dd 1fea53bb
+Solution(fe741e54426bc3a9) c15316 197817c 32bab3e 33dace8 4a0e47c 5ce2bdd 6c58999 94da3e2 992c1e1 9c79482 a3e6a5d b98452a bd1f19c c2c0be1 c85a493 cd107f3 e205020 ed3ccef 112d19b2 115386b7 119d35c4 1348e1ea 143cfc04 14487741 153c5b19 15407b7e 163bd23b 16a32c89 16ea3170 17d95218 19159e6b 1995a24d 1a77f7d9 1ace491e 1ae9de25 1bcee41c 1c5fb8b1 1cce89ce 1dcec3ac 1de2eea6 1eb82ffe 1efd3cf8
+2 total solutions of 120 nonces
+
+real	0m44.231s
+user	0m24.681s
+sys	  0m19.227s
+
+**Example with Debug mode:** (faster)
+Solution(fe741e54426bc3a9) c15316 197817c 32bab3e 33dace8 4a0e47c 5ce2bdd 6c58999 94da3e2 992c1e1 9c79482 a3e6a5d b98452a bd1f19c c2c0be1 c85a493 cd107f3 e205020 ed3ccef 112d19b2 115386b7 119d35c4 1348e1ea 143cfc04 14487741 153c5b19 15407b7e 163bd23b 16a32c89 16ea3170 17d95218 19159e6b 1995a24d 1a77f7d9 1ace491e 1ae9de25 1bcee41c 1c5fb8b1 1cce89ce 1dcec3ac 1de2eea6 1eb82ffe 1efd3cf8
+Verified with cyclehash 368d2ab2220f12bc482db070e15eaca71493be3290bd66ed4750a1ec60b9e763
+nonce 18335313330172576682 k0 k1 k2 k3 b4a41273c842792a 2118c0d57d6d4dae 766f9288dcf7945e ee8d443701cd5f1c
+Seeding completed
+   2-cycle found
+  24-cycle found
+  24-cycle found
+ 408-cycle found
+ 456-cycle found
+findcycles edges 68233 time 21 ms total 347 ms
+Time: 347 ms
+nonce 18335313330172576683 k0 k1 k2 k3 a61f856e44931cac b34d3fe93b692c6e f318a26da07d49e8 444c48a3476ed103
+Seeding completed
+  14-cycle found
+  12-cycle found
+   6-cycle found
+ 536-cycle found
+ 420-cycle found
+findcycles edges 64563 time 19 ms total 345 ms
+Time: 345 ms
+2 total solutions of 120 nonces
+
+real	0m44.510s
+user	0m24.635s
+sys	0m19.556s
+
+---
+
 # Debug mode hard deactivated on last binaries
 you will get just some lines like that:
 
