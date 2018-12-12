@@ -7,8 +7,7 @@ cd into the directory where you have your binary, then
 
 ```
 FILENAME="cuda29_GTX_1080"
-wget 
-https://github.com/Zwilla/BitCaine5_aeternity_miner/raw/master/binaries/$FILENAME
+wget https://raw.githubusercontent.com/Zwilla/BitCaine5_aeternity_miner/master/binaries/$FILENAME
 mv cuda29 cuda29_old
 mv $FILENAME cuda29
 ```
