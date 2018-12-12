@@ -1,0 +1,17 @@
+{
+  "compute_node": [
+    {
+      "cn_ip"       : "172.16.16.124",
+      "auto_detect" : "all cards"
+    },
+    {
+      "cn_ip"       : "172.16.16.128",
+      "auto_detect" : "all cards"
+    },
+    {
+      "cn_ip"       : "172.16.16.131",
+      "auto_detect" : "all cards"
+    }
+  ],
+  "MinerConfigPath": "$HOME/BitCaine5/my_farm.conf"
+}
