@@ -47,6 +47,21 @@ DEFAULTS
 Build version  : cuda29_GTX_970 by zwilla source_sha256: 1cbfbc7ce3b75a1248b00016663f2084d4fedc8579987a5e5225849dee8e4111
 Build date: 20181211
 ```
+## WARNING!!! TEST YOUR DRIVER BEFORE RUNNING HOURS
+Example:
+```
+zwilla@master-node1:~/ae_cuckoo/src/cuckoo$ ./cuda29_generic_test -g
+GeForce GTX 1070 Ti with 8119MB @ 256 bits x 4004MHz
+Looking for 42-cycle on cuckoo30("",0) with 50% edges, 64*64 buckets, 176 trims, and 64 thread blocks.
+Using 6976MB of global memory.
+nonce 0 k0 k1 k2 k3 a34c6a2bdaa03a14 d736650ae53eee9e 9a22f05e3bffed5e b8d55478fa3a606d
+   **2-cycle found**
+  **30-cycle found**
+ **754-cycle found**
+findcycles edges 63447 time 24 ms total 367 ms
+0 total solutions with 1 nonces
+```
+IF YOU DO NOT HAVE A SIMILAR OUTPUT xxx-cycle found then you have to update or change to an other driver
 
 
 
