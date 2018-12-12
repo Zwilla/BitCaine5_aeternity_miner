@@ -1,3 +1,15 @@
+## Build Date and Time added into binaries
+./cuda29_GTX_1070 -s
+
+. . .
+
+DEFAULTS
+  ./cuda29_GTX_1070 -d 0 -E 0 -h "" -m 176 -n 0 -r 1 -U 4096 -u 256 -v 128 -w 512 -y 1024 -Z 1024 -z 1024
+Build version  : cuda29_GTX_1070 by zwilla source_sha256: e99ea684f258c053f2bda842ddef176696ed0d87e22e9ee2e17469e76f94a231
+Build date: 20181212-19:16:09
+
+---
+
 # Debug Mode reenabeled use -g at your extra_args: "-g" to see the output
 * binaries updated
 
