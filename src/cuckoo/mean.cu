@@ -172,7 +172,7 @@ __global__ void SeedB(const siphash_keys &sipkeys, const EdgeOut * __restrict__ 
   const int TMPPERLL4 = sizeof(uint4) / sizeof(EdgeOut);
   __shared__ int counters[NX];
 
-  // if (group>=0&&lid==0) fprintf(stderr, "group  %d  -\n", group);
+  // if (group>=0&&lid==0) fprintf(stdout, "group  %d  -\n", group);
   for (int col = lid; col < NX; col += dim)
     counters[col] = 0;
   __syncthreads();
@@ -245,22 +245,31 @@ __device__ uint2 make_Edge(const uint2 edge, const uint2 dummy, const uint32_t n
    return edge;
 }
 
-__device__ uint32_t make_Edge(const uint32_t nonce, const uint32_t dummy, const uint32_t node0, const uint32_t node1) {
+__device__ uint32_t make_Edge(const uint32_t nonce, const uint32_t dummy, const uint32_t node0, const uint32_t node1)
+{
    return nonce;
 }
 
 template <typename Edge> uint32_t __device__ endpoint(const siphash_keys &sipkeys, Edge e, int uorv);
 
-__device__ uint32_t endpoint(const siphash_keys &sipkeys, uint32_t nonce, int uorv) {
+__device__ uint32_t endpoint(const siphash_keys &sipkeys, uint32_t nonce, int uorv)
+{
   return dipnode(sipkeys, nonce, uorv);
 }
 
-__device__ uint32_t endpoint(const siphash_keys &sipkeys, uint2 nodes, int uorv) {
+__device__ uint32_t endpoint(const siphash_keys &sipkeys, uint2 nodes, int uorv)
+{
   return uorv ? nodes.y : nodes.x;
 }
 
-template<int maxIn, typename EdgeIn, int maxOut, typename EdgeOut>
-__global__ void Round(const int round, const siphash_keys &sipkeys, const EdgeIn * __restrict__ source, EdgeOut * __restrict__ destination, const int * __restrict__ sourceIndexes, int * __restrict__ destinationIndexes) {
+template<int maxIn, typename EdgeIn, int maxOut, typename EdgeOut> __global__
+void Round(const int round,
+           const siphash_keys &sipkeys,
+           const EdgeIn * __restrict__ source,
+           EdgeOut * __restrict__ destination,
+           const int * __restrict__ sourceIndexes,
+           int * __restrict__ destinationIndexes)
+{
   const int group = blockIdx.x;
   const int dim = blockDim.x;
   const int lid = threadIdx.x;
@@ -269,39 +278,59 @@ __global__ void Round(const int round, const siphash_keys &sipkeys, const EdgeIn
   __shared__ uint32_t ecounters[COUNTERWORDS];
 
   for (int i = lid; i < COUNTERWORDS; i += dim)
-    ecounters[i] = 0;
+  {
+      ecounters[i] = 0;
+  }
+
   __syncthreads();
+
   const int edgesInBucket = min(sourceIndexes[group], maxIn);
   const int loops = (edgesInBucket + dim-1) / dim;
 
-  for (int loop = 0; loop < loops; loop++) {
+  for (int loop = 0; loop < loops; loop++)
+  {
     const int lindex = loop * dim + lid;
-    if (lindex < edgesInBucket) {
+
+    if (lindex < edgesInBucket)
+    {
       const int index = maxIn * group + lindex;
       EdgeIn edge = __ldg(&source[index]);
-      if (null(edge)) continue;
+
+      if (null(edge))
+      {
+          continue;
+      }
+
       uint32_t node = endpoint(sipkeys, edge, round&1);
       Increase2bCounter(ecounters, node >> (2*XBITS));
     }
   }
   __syncthreads();
-  for (int loop = 0; loop < loops; loop++) {
+
+  for (int loop = 0; loop < loops; loop++)
+  {
     const int lindex = loop * dim + lid;
-    if (lindex < edgesInBucket) {
+    if (lindex < edgesInBucket)
+    {
       const int index = maxIn * group + lindex;
       EdgeIn edge = __ldg(&source[index]);
-      if (null(edge)) continue;
+
+      if (null(edge))
+      {
+          continue;
+      }
+
       uint32_t node0 = endpoint(sipkeys, edge, round&1);
-      if (Read2bCounter(ecounters, node0 >> (2*XBITS))) {
+
+      if (Read2bCounter(ecounters, node0 >> (2*XBITS)))
+      {
         uint32_t node1 = endpoint(sipkeys, edge, (round&1)^1);
         const int bucket = node1 & X2MASK;
         const int bktIdx = min(atomicAdd(destinationIndexes + bucket, 1), maxOut - 1);
-        destination[bucket * maxOut + bktIdx] = (round&1) ? make_Edge(edge, *destination, node1, node0)
-                                                          : make_Edge(edge, *destination, node0, node1);
+        destination[bucket * maxOut + bktIdx] = (round&1) ? make_Edge(edge, *destination, node1, node0) : make_Edge(edge, *destination, node0, node1);
       }
     }
   }
-  // if (group==0&&lid==0) fprintf(stderr, "round %d cnt(0,0) %d\n", round, sourceIndexes[0]);
 }
 
 template<int maxIn>
@@ -323,7 +352,7 @@ __global__ void Tail(const uint2 *source, uint2 *destination, const int *sourceI
 #define checkCudaErrors(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
   if (code != cudaSuccess) {
-    fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+    fprintf(stdout,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
     if (abort) exit(code);
   }
 }
@@ -671,11 +700,11 @@ struct solver_ctx
           while (nu-- && us[nu] != u) ;
           if (~nu)
           {
-            fprintf(stderr, "illegal %4d-cycle from node %d\n", MAXPATHLEN-nu, u0);
+            fprintf(stdout, "illegal %4d-cycle from node %d\n", MAXPATHLEN-nu, u0);
             exit(0);
           }
 
-          fprintf(stderr, "maximum path length exceeded\n");
+          fprintf(stdout, "maximum path length exceeded\n");
           return 0; // happens once in a million runs or so; signal trouble
         }
 
@@ -705,7 +734,7 @@ struct solver_ctx
 
           if(will_debug)
           {
-              fprintf(stderr, "%4d-cycle found\n", len);
+              fprintf(stdout, "%4d-cycle found\n", len);
           }
 
           if (len == PROOFSIZE)
@@ -753,7 +782,7 @@ struct solver_ctx
 
       if (nedges > MAXEDGES)
       {
-        fprintf(stderr, "OOPS; losing %d edges beyond MAXEDGES=%d\n", nedges-MAXEDGES, MAXEDGES);
+        fprintf(stdout, "OOPS; losing %d edges beyond MAXEDGES=%d\n", nedges-MAXEDGES, MAXEDGES);
         nedges = MAXEDGES;
       }
 
@@ -771,7 +800,7 @@ struct solver_ctx
       
       if(will_debug)
       {
-         fprintf(stderr, "findcycles edges %d time %d ms total %d ms\n", nedges, timems2, timems+timems2);
+         fprintf(stdout, "findcycles edges %d time %d ms total %d ms\n", nedges, timems2, timems+timems2);
       }
       
       return sols.size() / PROOFSIZE;
@@ -785,6 +814,19 @@ struct solver_ctx
 int main(int argc, char **argv)
 {
     trimparams tp;
+
+    char bversion[256];
+    sprintf(bversion,"%s", __BUILD_VERSION);
+
+    char bdate[256];
+    sprintf(bdate,"%s", __BUILD_DATE);
+
+    char buildby[256];
+        sprintf(buildby,"%s", __BUILD_BY);
+
+    char build_sha[256];
+    sprintf(build_sha,"%s", __BUILD_SHA);
+
     uint32_t nonce = 0;
     uint32_t range = 1;
     uint32_t device = 0;
@@ -805,8 +847,10 @@ int main(int argc, char **argv)
                cpuload = true;
                break;
            case 's':
-               fprintf(stderr, "SYNOPSIS\n  cuda%d [-d device] [-E 0-2] [-h hexheader] [-m trims] [-n nonce] [-r range] [-U seedAblocks] [-u seedAthreads] [-v seedBthreads] [-w Trimthreads] [-y Tailthreads] [-Z recoverblocks] [-z recoverthreads]\n", NODEBITS);
-               fprintf(stderr, "DEFAULTS\n  cuda%d -d %d -E %d -h \"\" -m %d -n %d -r %d -U %d -u %d -v %d -w %d -y %d -Z %d -z %d\n", NODEBITS, device, tp.expand, tp.ntrims, nonce, range, tp.genA.blocks, tp.genA.tpb, tp.genB.tpb, tp.trim.tpb, tp.tail.tpb, tp.recover.blocks, tp.recover.tpb);
+               fprintf(stdout, "SYNOPSIS\n  %s \n[-d device] \n[-E 0-2] \n[-h hexheader] \n[-m trims] \n[-n nonce] \n[-r range] \n[-U seedAblocks] \n[-u seedAthreads] \n[-v seedBthreads] \n[-w Trimthreads] \n[-y Tailthreads] \n[-Z recoverblocks] \n[-z recoverthreads] \n[-g debug] \n[-c cpu none blocking]\n", argv[0]);
+               fprintf(stdout, "\n DEFAULTS\n  %s -d %d -E %d -h \"\" -m %d -n %d -r %d -U %d -u %d -v %d -w %d -y %d -Z %d -z %d\n", argv[0], device, tp.expand, tp.ntrims, nonce, range, tp.genA.blocks, tp.genA.tpb, tp.genB.tpb, tp.trim.tpb, tp.tail.tpb, tp.recover.blocks, tp.recover.tpb);
+               fprintf(stdout, "Build version  : %s by %s source_sha256: %s\n", bversion, buildby,build_sha);
+               fprintf(stdout, "Build date: %s\n", bdate);
                exit(0);
            case 'd':
                device = atoi(optarg);
@@ -880,15 +924,15 @@ int main(int argc, char **argv)
         int dunit;
         for (dunit=0; dbytes >= 10240; dbytes>>=10,dunit++) ;
 
-        fprintf(stderr, "%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
+        fprintf(stdout, "%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
 
-        fprintf(stderr, "Looking for %d-cycle on cuckoo%d(\"%s\",%d", PROOFSIZE, NODEBITS, header, nonce);
+        fprintf(stdout, "Looking for %d-cycle on cuckoo%d(\"%s\",%d", PROOFSIZE, NODEBITS, header, nonce);
 
         if (range > 1)
         {
-            fprintf(stderr, "-%d", nonce+range-1);
+            fprintf(stdout, "-%d", nonce+range-1);
         }
-        fprintf(stderr, ") with 50%% edges, %d*%d buckets, %d trims, and %d thread blocks.\n", NX, NY, tp.ntrims, NX);
+        fprintf(stdout, ") with 50%% edges, %d*%d buckets, %d trims, and %d thread blocks.\n", NX, NY, tp.ntrims, NX);
     }
 
     solver_ctx ctx(tp);
@@ -900,7 +944,7 @@ int main(int argc, char **argv)
 
         for (unit=0; bytes >= 10240; bytes>>=10,unit++) ;
 
-        fprintf(stderr, "Using %d%cB of global memory.\n", (uint32_t)bytes, " KMGT"[unit]);
+        fprintf(stdout, "Using %d%cB of global memory.\n", (uint32_t)bytes, " KMGT"[unit]);
     }
 
     uint32_t sum_n_sols = 0;
@@ -912,7 +956,7 @@ int main(int argc, char **argv)
         
         if (will_debug)
         {
-            fprintf(stderr,"nonce %d k0 k1 k2 k3 %zx %zx %zx %zx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
+            fprintf(stdout,"nonce %d k0 k1 k2 k3 %zx %zx %zx %zx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
         }
         
         uint32_t n_sols = ctx.solve();
@@ -930,7 +974,7 @@ int main(int argc, char **argv)
             }
             
             sum_n_sols += n_sols;
-            fprintf(stderr,"Solution%s\n",my_solution);
+            fprintf(stdout,"Solution%s\n",my_solution);
             my_solution[0]=0;
             
             if (will_debug)
@@ -939,28 +983,25 @@ int main(int argc, char **argv)
             
                 if (pow_rc == POW_OK)
                 {
-                  fprintf(stderr, "Verified with cycle_hash ");
+                  fprintf(stdout, "Verified with cycle_hash ");
                   unsigned char cycle_hash[32];
                   blake2b((void *)cycle_hash, sizeof(cycle_hash), (const void *)prf, sizeof(proof), 0, 0);
             
                   for (int i=0; i<32; i++)
                   {
-                      fprintf(stderr, "%02x", cycle_hash[i]);
+                      fprintf(stdout, "%02x", cycle_hash[i]);
                   }
-                  fprintf(stderr, "\n");
+                  fprintf(stdout, "\n");
                 }
                 else
                 {
-                    fprintf(stderr,"FAILED due to %s\n", errstr[pow_rc]);
+                    fprintf(stdout,"FAILED due to %s\n", errstr[pow_rc]);
                 }
             }        
         }
     }
-    if (will_debug)
-    {
-        fprintf(stderr, "%d total solutions with %d nonces\n", sum_n_sols,range);
-        return 0;
-    }
-    fprintf(stderr, "%d total solutions\n", sum_n_sols);
+    
+    fprintf(stdout, "%d total solutions with %d nonces\n", sum_n_sols,range);
+
     return 0;
 }
