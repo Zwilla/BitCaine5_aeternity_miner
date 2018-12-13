@@ -1,4 +1,4 @@
-## Example for lazy people:
+## Example for lazy people (OS dependent ubuntu 64bit):
 which have no time to build
 
 cd into the directory where you have your binary, then
