@@ -1,4 +1,5 @@
 #14th December 2018
+```
 ./getBlock
 We check now for CA certificates and make a miners CA cert
 We found miner CA cert
@@ -50,3 +51,4 @@ auto_detect: cpu
 card_type: (null)
 card_port: all
 cpu_use: 75%
+```
