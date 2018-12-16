@@ -2,16 +2,38 @@
   "compute_node": [
     {
       "cn_ip"       : "172.16.16.124",
-      "auto_detect" : "all cards"
+      "auto_detect" : "all",
+      "card_type"   : "nvidia",
+      "card_port"   : "all"
     },
     {
       "cn_ip"       : "172.16.16.128",
-      "auto_detect" : "all cards"
+      "auto_detect" : "3",
+      "card_type"   : "nvidia",
+      "card_port"   : "0,1,4"
     },
     {
       "cn_ip"       : "172.16.16.131",
-      "auto_detect" : "all cards"
+      "auto_detect" : "all cards",
+      "card_type"   : "amd",
+      "card_port"   : "all"
+    },
+    {
+      "cn_ip"       : "172.16.16.131",
+      "auto_detect" : "cpu",
+      "card_port"   : "all",
+      "cpu_use"     : "75%"
     }
   ],
+  "mining_pool": [
+    {
+      "pool":"stratum+tcp://ae.f2pool.com:7898",
+      "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
+      "pass":"x"
+    }
+  ],
+  "mining_prio_0":"pool",
+  "mining_prio_1":"solo",  
+  "license_key": "555336767631314D6476557173763135597751497972655378314A545A31313431505143785350577766553D",
   "MinerConfigPath": "$HOME/BitCaine5/my_farm.conf"
 }
