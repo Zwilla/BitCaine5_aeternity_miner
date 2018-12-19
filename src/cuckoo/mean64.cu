@@ -521,8 +521,6 @@ struct edgetrimmer {
 
   uint32_t trim()
   {
-    cudaMemcpy(dt, this, sizeof(edgetrimmer), cudaMemcpyHostToDevice);
-
     cudaMemset(indexesE, 0, indexesSize);
     cudaMemset(indexesE2, 0, indexesSize);
 
