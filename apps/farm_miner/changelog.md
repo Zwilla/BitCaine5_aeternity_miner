@@ -1,3 +1,40 @@
+#19th December 2018
+```
+mining_pools array found size 1
+rpc_url: stratum+tcp://ae.f2pool.com:7898
+user: ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ
+pass: x
+B: rpc_url: stratum+tcp://ae.f2pool.com:7898
+B: stratum_url: ae.f2pool.com
+B: sockaddr_url: ae.f2pool.com
+B: stratum_port: 7898
+[New Thread 0x7ffff1c6a700 (LWP 53636)]
+BitCaine5: 02 started -------------------- > [0]0/BC5_sRead < -------------------------pool->rpc_url           : stratum+tcp://ae.f2pool.com:7898
+pool->sockaddr_url      : ae.f2pool.com
+pool->stratum_url       : ae.f2pool.com
+pool host name          : ae.f2pool.com
+pool h_addrtype         : 2
+pool h_aliases          : 0x55555579bea0
+pool h_length           : 4
+pool h_addr_list[0]   : 203.107.32.162
+main: BitCaine5: Step 2a Probing for an alive pool. We have at total [1] pools
+[New Thread 0x7ffff0e4d700 (LWP 53637)]
+BitCaine5: 07 started -------------------- > 0/Pools < -------------------------
+SEND_OK WORKS
+socket_full TRUE
+stratum_return_message:
+ {"id":0,"result":[[["mining.set_difficulty","mining.set_difficulty"],["mining.notify","mining.notify"]],"00002560",4],"error":null} 
+stratum_return_message OK
+END initiate_stratum ret is: initiate stratum OK
+We need a stratum restart [1316]
+[New Thread 0x7fffebfff700 (LWP 53638)]
+BitCaine5: 02 started -------------------- > [0]0/BC5_sRead < -------------------------Pool sends a work update:
+ {"id":null,"method":"mining.notify","params":["2acdb63b80934e5958d","708639c366634f59ffb3132a913f4997ec87f413f6b6cd2082617630ea2cc1ad",10397,"1e10df05",false]}
+still working on old block
+[New Thread 0x7fffeb7fe700 (LWP 53639)]
+Have set pool global
+BitCaine5: 01 started -------------------- > 0/BC5_sSend < -------------------------
+```
 #14th December 2018
 ```
 ./getBlock
