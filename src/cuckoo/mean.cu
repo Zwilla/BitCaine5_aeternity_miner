@@ -21,6 +21,7 @@
 #include "cuckoo.h"
 #include "../crypto/siphash.cuh"
 #include "../crypto/blake2.h"
+#include "../crypto/base64.h"
 
 bool will_debug = false;
 
@@ -172,49 +173,79 @@ __global__ void SeedB(const siphash_keys &sipkeys, const EdgeOut * __restrict__ 
   const int TMPPERLL4 = sizeof(uint4) / sizeof(EdgeOut);
   __shared__ int counters[NX];
 
-  // if (group>=0&&lid==0) fprintf(stdout, "group  %d  -\n", group);
+
   for (int col = lid; col < NX; col += dim)
-    counters[col] = 0;
+  {
+      counters[col] = 0;
+  }
+
   __syncthreads();
+
   const int row = group / NX;
   const int bucketEdges = min((int)sourceIndexes[group], (int)maxOut);
   const int loops = (bucketEdges + dim-1) / dim;
-  for (int loop = 0; loop < loops; loop++) {
+
+  for (int loop = 0; loop < loops; loop++)
+  {
     int col;
     int counter = 0;
     const int edgeIndex = loop * dim + lid;
-    if (edgeIndex < bucketEdges) {
+
+    if (edgeIndex < bucketEdges)
+    {
       const int index = group * maxOut + edgeIndex;
       EdgeOut edge = __ldg(&source[index]);
-      if (null(edge)) continue;
+
+      if (null(edge))
+      {
+          continue;
+      }
+
       uint32_t node1 = endpoint(sipkeys, edge, 0);
       col = (node1 >> XBITS) & XMASK;
       counter = min((int)atomicAdd(counters + col, 1), (int)(FLUSHB2-1));
       tmp[col][counter] = edge;
     }
+
     __syncthreads();
-    if (counter == FLUSHB-1) {
+
+    if (counter == FLUSHB-1)
+    {
       int localIdx = min(FLUSHB2, counters[col]);
       int newCount = localIdx % FLUSHB;
       int nflush = localIdx - newCount;
       int cnt = min((int)atomicAdd(destinationIndexes + row * NX + col, nflush), (int)(maxOut - nflush));
+
       for (int i = 0; i < nflush; i += TMPPERLL4)
-        destination[((uint64_t)(row * NX + col) * maxOut + cnt + i) / TMPPERLL4] = *(uint4 *)(&tmp[col][i]);
-      for (int t = 0; t < newCount; t++) {
+      {
+          destination[((uint64_t)(row * NX + col) * maxOut + cnt + i) / TMPPERLL4] = *(uint4 *)(&tmp[col][i]);
+      }
+
+      for (int t = 0; t < newCount; t++)
+      {
         tmp[col][t] = tmp[col][t + nflush];
       }
+
       counters[col] = newCount;
     }
     __syncthreads(); 
   }
+
   EdgeOut zero = make_Edge(0, tmp[0][0], 0, 0);
-  for (int col = lid; col < NX; col += dim) {
+
+  for (int col = lid; col < NX; col += dim)
+  {
     int localIdx = min(FLUSHB2, counters[col]);
+
     for (int j = localIdx; j % TMPPERLL4; j++)
-      tmp[col][j] = zero;
-    for (int i = 0; i < localIdx; i += TMPPERLL4) {
-      int cnt = min((int)atomicAdd(destinationIndexes + row * NX + col, TMPPERLL4), (int)(maxOut - TMPPERLL4));
-      destination[((uint64_t)(row * NX + col) * maxOut + cnt) / TMPPERLL4] = *(uint4 *)(&tmp[col][i]);
+    {
+        tmp[col][j] = zero;
+    }
+
+    for (int i = 0; i < localIdx; i += TMPPERLL4)
+    {
+        int cnt = min((int)atomicAdd(destinationIndexes + row * NX + col, TMPPERLL4), (int)(maxOut - TMPPERLL4));
+        destination[((uint64_t)(row * NX + col) * maxOut + cnt) / TMPPERLL4] = *(uint4 *)(&tmp[col][i]);
     }
   }
 }
@@ -363,24 +394,40 @@ __global__ void Recovery(const siphash_keys &sipkeys, uint4 *buffer, int *indexe
   const int lid = threadIdx.x;
   const int nthreads = blockDim.x * gridDim.x;
   const int loops = NEDGES / nthreads;
-  __shared__ uint32_t nonces[PROOFSIZE];
+
+  __shared__ uint64_t nonces[PROOFSIZE];
   
-  if (lid < PROOFSIZE) nonces[lid] = 0;
+  if (lid < PROOFSIZE)
+  {
+      nonces[lid] = 0;
+  }
+
   __syncthreads();
-  for (int i = 0; i < loops; i++) {
-    uint64_t nonce = gid * loops + i;
-    uint64_t u = dipnode(sipkeys, nonce, 0);
-    uint64_t v = dipnode(sipkeys, nonce, 1);
-    for (int i = 0; i < PROOFSIZE; i++) {
-      if (recoveredges[i].x == u && recoveredges[i].y == v)
-        nonces[i] = nonce;
+
+  for (int i = 0; i < loops; i++)
+  {
+      uint64_t nonce = gid * loops + i;
+      uint64_t u = dipnode(sipkeys, nonce, 0);
+      uint64_t v = dipnode(sipkeys, nonce, 1);
+
+      for (int i = 0; i < PROOFSIZE; i++)
+      {
+          if (recoveredges[i].x == u && recoveredges[i].y == v)
+          {
+              nonces[i] = nonce;
+          }
+      }
+  }
+  __syncthreads();
+
+  if (lid < PROOFSIZE)
+  {
+    if (nonces[lid] > 0)
+    {
+        indexes[lid] = nonces[lid];
     }
   }
-  __syncthreads();
-  if (lid < PROOFSIZE) {
-    if (nonces[lid] > 0)
-      indexes[lid] = nonces[lid];
-  }
+
 }
 
 struct blockstpb {
@@ -428,14 +475,16 @@ struct edgetrimmer {
   int *indexesE2;
   uint32_t hostA[NX * NY];
   uint32_t *uvnodes;
-  proof sol;
   siphash_keys sipkeys, *dipkeys;
+  bool abort;
+  bool initsuccess = false;
 
-  edgetrimmer(const trimparams _tp)
+
+  edgetrimmer(const trimparams _tp) : tp(_tp)
   {
     tp = _tp;
     cudaMalloc((void**)&dt, sizeof(edgetrimmer));
-    cudaMalloc((void**)&uvnodes, PROOFSIZE * 2 * sizeof(uint32_t));
+    cudaMalloc((void**)&uvnodes, PROOFSIZE * 2 * sizeof(uint64_t));
     cudaMalloc((void**)&dipkeys, sizeof(siphash_keys));
     cudaMalloc((void**)&indexesE, indexesSize);
     cudaMalloc((void**)&indexesE2, indexesSize);
@@ -448,6 +497,8 @@ struct edgetrimmer {
 
     bufferB  = bufferA + sizeA / sizeof(uint4);
     bufferAB = bufferA + sizeB / sizeof(uint4);
+    cudaMemcpy(dt, this, sizeof(edgetrimmer), cudaMemcpyHostToDevice);
+    initsuccess = true;
   }
 
   uint64_t globalbytes() const
@@ -485,7 +536,7 @@ struct edgetrimmer {
     {
         SeedA<EDGES_A, uint32_t><<<tp.genA.blocks, tp.genA.tpb>>>(*dipkeys, bufferAB, (int *)indexesE);
     }
-  
+    if (abort) return false;
     cudaDeviceSynchronize();
 
     const uint32_t halfA = sizeA/2 / sizeof(uint4);
@@ -498,12 +549,18 @@ struct edgetrimmer {
     }
     else
     {
-      SeedB<EDGES_A, uint32_t><<<tp.genB.blocks/2, tp.genB.tpb>>>(*dipkeys, (const   uint32_t *)bufferAB, bufferA, (const int *)indexesE, indexesE2);
-      SeedB<EDGES_A, uint32_t><<<tp.genB.blocks/2, tp.genB.tpb>>>(*dipkeys, (const   uint32_t *)(bufferAB+halfA), bufferA+halfA, (const int *)(indexesE+halfE), indexesE2+halfE);
+      SeedB<EDGES_A, uint32_t><<<tp.genB.blocks/2, tp.genB.tpb>>>(*dipkeys, (const uint32_t *)bufferAB, bufferA, (const int *)indexesE, indexesE2);
+      SeedB<EDGES_A, uint32_t><<<tp.genB.blocks/2, tp.genB.tpb>>>(*dipkeys, (const uint32_t *)(bufferAB+halfA), bufferA+halfA, (const int *)(indexesE+halfE), indexesE2+halfE);
     }
 
     cudaDeviceSynchronize();
 
+    if(will_debug)
+    {
+        fprintf(stdout,"Seeding completed\n");
+    }
+
+    if (abort) return false;
     cudaMemset(indexesE, 0, indexesSize);
 
     if (tp.expand == 0)
@@ -512,12 +569,13 @@ struct edgetrimmer {
     }
     else if (tp.expand == 1)
     {
-        Round<EDGES_A,   uint32_t, EDGES_B, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(0, *dipkeys, (const   uint32_t *)bufferA, (uint2 *)bufferB, (const int *)indexesE2, (int *)indexesE); // to .632
+        Round<EDGES_A,   uint32_t, EDGES_B, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(0, *dipkeys, (const uint32_t *)bufferA, (uint2 *)bufferB, (const int *)indexesE2, (int *)indexesE); // to .632
     }
-    else
+    else // tp.expand == 2
     {
-        Round<EDGES_A,   uint32_t, EDGES_B,   uint32_t><<<tp.trim.blocks, tp.trim.tpb>>>(0, *dipkeys, (const   uint32_t *)bufferA, (  uint32_t *)bufferB, (const int *)indexesE2, (int *)indexesE); // to .632
+        Round<EDGES_A,   uint32_t, EDGES_B,   uint32_t><<<tp.trim.blocks, tp.trim.tpb>>>(0, *dipkeys, (const uint32_t *)bufferA, (  uint32_t *)bufferB, (const int *)indexesE2, (int *)indexesE); // to .632
     }
+    if (abort) return false;
 
     cudaMemset(indexesE2, 0, indexesSize);
 
@@ -527,11 +585,13 @@ struct edgetrimmer {
     }
     else
     {
-        Round<EDGES_B,   uint32_t, EDGES_B/2, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(1, *dipkeys, (const   uint32_t *)bufferB, (uint2 *)bufferA, (const int *)indexesE, (int *)indexesE2); // to .296
+        Round<EDGES_B,   uint32_t, EDGES_B/2, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(1, *dipkeys, (const uint32_t *)bufferB, (uint2 *)bufferA, (const int *)indexesE, (int *)indexesE2); // to .296
     }
 
+    if (abort) return false;
     cudaMemset(indexesE, 0, indexesSize);
     Round<EDGES_B/2, uint2, EDGES_A/4, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(2, *dipkeys, (const uint2 *)bufferA, (uint2 *)bufferB, (const int *)indexesE2, (int *)indexesE); // to .176
+    if (abort) return false;
     cudaMemset(indexesE2, 0, indexesSize);
     Round<EDGES_A/4, uint2, EDGES_B/4, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(3, *dipkeys, (const uint2 *)bufferB, (uint2 *)bufferA, (const int *)indexesE, (int *)indexesE2); // to .117
   
@@ -539,12 +599,15 @@ struct edgetrimmer {
   
     for (int round = 4; round < tp.ntrims; round += 2)
     {
-      cudaMemset(indexesE, 0, indexesSize);
-      Round<EDGES_B/4, uint2, EDGES_B/4, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(round, *dipkeys,  (const uint2 *)bufferA, (uint2 *)bufferB, (const int *)indexesE2, (int *)indexesE);
-      cudaMemset(indexesE2, 0, indexesSize);
-      Round<EDGES_B/4, uint2, EDGES_B/4, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(round+1, *dipkeys,  (const uint2 *)bufferB, (uint2 *)bufferA, (const int *)indexesE, (int *)indexesE2);
+        if (abort) return false;
+        cudaMemset(indexesE, 0, indexesSize);
+        Round<EDGES_B/4, uint2, EDGES_B/4, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(round, *dipkeys,  (const uint2 *)bufferA, (uint2 *)bufferB, (const int *)indexesE2, (int *)indexesE);
+        if (abort) return false;
+        cudaMemset(indexesE2, 0, indexesSize);
+        Round<EDGES_B/4, uint2, EDGES_B/4, uint2><<<tp.trim.blocks, tp.trim.tpb>>>(round+1, *dipkeys,  (const uint2 *)bufferB, (uint2 *)bufferA, (const int *)indexesE, (int *)indexesE2);
     }
     
+    if (abort) return false;
     cudaMemset(indexesE, 0, indexesSize);
     cudaDeviceSynchronize();
   
@@ -625,7 +688,8 @@ const static uint32_t MAXEDGES = 0x20000;
 
 struct solver_ctx
 {
-    edgetrimmer *trimmer;
+    edgetrimmer trimmer;
+    bool mutatenonce;
     uint2 *edges;
     cuckoo_hash *cuckoo;
     uint2 soledges[PROOFSIZE];
@@ -635,17 +699,19 @@ struct solver_ctx
     uint32_t us[MAXPATHLEN];
     uint32_t vs[MAXPATHLEN];
 
-    solver_ctx(const trimparams tp)
-    {
-        trimmer = new edgetrimmer(tp);
+  solver_ctx(const trimparams tp, bool mutate_nonce) : trimmer(tp)
+  {
         edges   = new uint2[MAXEDGES];
         cuckoo  = new cuckoo_hash();
-    }
+        mutatenonce = mutate_nonce;
+   }
 
-    void set_header_nonce(char * const headernonce, const uint32_t len, const uint32_t nonce)
-    {
-        ((uint32_t *)headernonce)[len/sizeof(uint32_t)-1] = htole32(nonce);
-        setheader(headernonce, len, &trimmer->sipkeys);
+  void setheadernonce(char * const headernonce, const uint32_t len, const uint64_t nonce) {
+    if (mutatenonce) {
+      // The KeyHash takes 44 byte - put nonce at 45-56
+      base64_encode_nonce(nonce, headernonce + 44);
+    }
+    setheader(headernonce, len, &trimmer.sipkeys);
         sols.clear();
     }
 
@@ -653,7 +719,6 @@ struct solver_ctx
     {
       delete cuckoo;
       delete[] edges;
-      delete trimmer;
     }
 
     void recordedge(const uint32_t i, const uint32_t u2, const uint32_t v2)
@@ -679,13 +744,10 @@ struct solver_ctx
       sols.resize(sols.size() + PROOFSIZE);
 
       cudaMemcpyToSymbol(recoveredges, soledges, sizeof(soledges));
-      cudaMemset(trimmer->indexesE2, 0, trimmer->indexesSize);
-
-      Recovery<<<trimmer->tp.recover.blocks, trimmer->tp.recover.tpb>>>(*trimmer->dipkeys, trimmer->bufferA, (int *)trimmer->indexesE2);
-
-      cudaMemcpy(&sols[sols.size()-PROOFSIZE], trimmer->indexesE2, PROOFSIZE * sizeof(uint32_t), cudaMemcpyDeviceToHost);
-
-      cudaDeviceSynchronize();
+    cudaMemset(trimmer.indexesE2, 0, trimmer.indexesSize);
+    Recovery<<<trimmer.tp.recover.blocks, trimmer.tp.recover.tpb>>>(*trimmer.dipkeys, trimmer.bufferA, (int *)trimmer.indexesE2);
+    cudaMemcpy(&sols[sols.size()-PROOFSIZE], trimmer.indexesE2, PROOFSIZE * sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
 
       qsort(&sols[sols.size()-PROOFSIZE], PROOFSIZE, sizeof(uint32_t), nonce_cmp);
     }
@@ -778,7 +840,12 @@ struct solver_ctx
     {
       uint32_t timems,timems2;
       auto time0 = std::chrono::high_resolution_clock::now();
-      uint32_t nedges = trimmer->trim();
+      trimmer.abort = false;
+      uint32_t nedges = trimmer.trim();
+      if (!nedges)
+      {
+          return 0;
+      }
 
       if (nedges > MAXEDGES)
       {
@@ -786,7 +853,7 @@ struct solver_ctx
         nedges = MAXEDGES;
       }
 
-      cudaMemcpy(edges, trimmer->bufferB, nedges * 8, cudaMemcpyDeviceToHost);
+      cudaMemcpy(edges, trimmer.bufferB, nedges * 8, cudaMemcpyDeviceToHost);
 
       auto time1 = std::chrono::high_resolution_clock::now();
       auto duration = std::chrono::duration_cast<ms>(time1 - time0);
@@ -806,10 +873,218 @@ struct solver_ctx
       return sols.size() / PROOFSIZE;
     }
 
+    void abort()
+    {
+        trimmer.abort = true;
+    }
+
 };
 
 // arbitrary length of header hashed into siphash key
 #define HEADERLEN 80
+typedef solver_ctx SolverCtx;
+
+CALL_CONVENTION int run_solver(SolverCtx* ctx,
+                               char* header,
+                               int header_length,
+                               uint64_t nonce,
+                               uint32_t range,
+                               SolverSolutions *solutions,
+                               SolverStats *stats
+                               )
+{
+  uint64_t time0, time1;
+  uint32_t timems;
+  uint32_t sumnsols = 0;
+  int device_id;
+  char my_solution[1024];
+
+  if(will_debug)
+  {
+    if (stats != NULL)
+    {
+      cudaGetDevice(&device_id);
+      cudaDeviceProp props;
+      cudaGetDeviceProperties(&props, stats->device_id);
+      stats->device_id = device_id;
+      stats->edge_bits = EDGEBITS;
+      strncpy(stats->device_name, props.name, MAX_NAME_LEN);
+    }
+
+    if (ctx == NULL || !ctx->trimmer.initsuccess)
+    {
+        print_log("Error initialising trimmer. Aborting.\n");
+        print_log("Reason: %s\n", LAST_ERROR_REASON);
+        if (stats != NULL)
+        {
+           stats->has_errored = true;
+           strncpy(stats->error_reason, LAST_ERROR_REASON, MAX_NAME_LEN);
+        }
+        return 0;
+    }
+  }
+
+  uint32_t nsols = 0;
+  
+  for (uint32_t r = 0; r < range; r++)
+  {
+
+    if(will_debug)
+    {
+        time0 = timestamp();
+        ctx->setheadernonce(header, header_length, nonce + r);
+        print_log("nonce %llu k0 k1 k2 k3 %llx %llx %llx %llx\n", nonce+r, ctx->trimmer.sipkeys.k0, ctx->trimmer.sipkeys.k1, ctx->trimmer.sipkeys.k2, ctx->trimmer.sipkeys.k3);
+        nsols = ctx->solve();
+        time1 = timestamp();
+        timems = (time1 - time0) / 1000000;
+        print_log("Time: %d ms\n", timems);
+    }
+    else
+    {
+        ctx->setheadernonce(header, header_length, nonce + r);
+        nsols = ctx->solve();
+    }
+
+    char temps[512];
+    temps[0]=0;
+
+    for (unsigned s = 0; s < nsols; s++)
+    {
+      sprintf(temps,"(%jx)", (uintmax_t)(nonce+r));
+      strcat(my_solution, temps);
+      uint32_t* prf = &ctx->sols[s * PROOFSIZE];
+
+       for (uint32_t i = 0; i < PROOFSIZE; i++)
+       {
+           temps[0]=0;
+           sprintf(temps," %jx",(uintmax_t)prf[i]);
+           strcat(my_solution, temps);
+       }
+       
+       fprintf(stdout,"Solution%s\n",my_solution);
+       my_solution[0]=0;
+
+      if (solutions != NULL)
+      {
+        solutions->edge_bits = EDGEBITS;
+        solutions->num_sols++;
+        solutions->sols[sumnsols+s].nonce = nonce + r;
+
+        for (uint32_t i = 0; i < PROOFSIZE; i++)
+        {
+            solutions->sols[sumnsols+s].proof[i] = (uint64_t) prf[i];
+        }
+      }
+
+      if(will_debug)
+      {
+          int pow_rc = verify(prf, &ctx->trimmer.sipkeys);
+          if (pow_rc == POW_OK)
+          {
+            print_log("Verified with cyclehash ");
+            unsigned char cyclehash[32];
+            blake2b((void *)cyclehash, sizeof(cyclehash), (const void *)prf, sizeof(proof), 0, 0);
+
+            for (int i=0; i<32; i++)
+            {
+                print_log("%02x", cyclehash[i]);
+            }
+              print_log("\n");
+          }
+          else
+          {
+              print_log("FAILED due to %s\n", errstr[pow_rc]);
+          }
+      }
+
+    }
+
+    sumnsols += nsols;
+
+    if(will_debug)
+    {
+        if (stats != NULL)
+        {
+            stats->last_start_time = time0;
+            stats->last_end_time = time1;
+            stats->last_solution_time = time1 - time0;
+        }
+    }
+
+  } // end for loop
+
+  print_log("%d total solutions of %d nonces\n", sumnsols, range);
+  return sumnsols > 0;
+}
+
+CALL_CONVENTION SolverCtx* create_solver_ctx(SolverParams* params) {
+  trimparams tp;
+  tp.ntrims = params->ntrims;
+  tp.expand = params->expand;
+  tp.genA.blocks = params->genablocks;
+  tp.genA.tpb = params->genatpb;
+  tp.genB.tpb = params->genbtpb;
+  tp.trim.tpb = params->trimtpb;
+  tp.tail.tpb = params->tailtpb;
+  tp.recover.blocks = params->recoverblocks;
+  tp.recover.tpb = params->recovertpb;
+
+  cudaDeviceProp prop;
+  cudaGetDeviceProperties(&prop, params->device);
+
+  if(will_debug)
+  {
+    assert(tp.genA.tpb <= prop.maxThreadsPerBlock);
+    assert(tp.genB.tpb <= prop.maxThreadsPerBlock);
+    assert(tp.trim.tpb <= prop.maxThreadsPerBlock);
+    // assert(tp.tailblocks <= prop.threadDims[0]);
+    assert(tp.tail.tpb <= prop.maxThreadsPerBlock);
+    assert(tp.recover.tpb <= prop.maxThreadsPerBlock);
+
+    assert(tp.genA.blocks * tp.genA.tpb <= NEDGES); // check THREADS_HAVE_EDGES
+    assert(tp.recover.blocks * tp.recover.tpb <= NEDGES); // check THREADS_HAVE_EDGES
+    assert(tp.genA.tpb / NX <= FLUSHA); // check ROWS_LIMIT_LOSSES
+    assert(tp.genA.tpb / NX <= FLUSHA); // check COLS_LIMIT_LOSSES
+  }
+
+
+  cudaSetDevice(params->device);
+
+  if (!params->cpuload)
+  {
+      cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+  }
+
+  SolverCtx* ctx = new SolverCtx(tp, params->mutate_nonce);
+
+  return ctx;
+}
+
+CALL_CONVENTION void destroy_solver_ctx(SolverCtx* ctx) {
+  delete ctx;
+}
+
+CALL_CONVENTION void stop_solver(SolverCtx* ctx) {
+  ctx->abort();
+}
+
+CALL_CONVENTION void fill_default_params(SolverParams* params)
+{
+  trimparams tp;
+  params->device = 0;
+  params->ntrims = tp.ntrims;
+  params->expand = tp.expand;
+  params->genablocks = tp.genA.blocks;
+  params->genatpb = tp.genA.tpb;
+  params->genbtpb = tp.genB.tpb;
+  params->trimtpb = tp.trim.tpb;
+  params->tailtpb = tp.tail.tpb;
+  params->recoverblocks = tp.recover.blocks;
+  params->recovertpb = tp.recover.tpb;
+  params->cpuload = true;
+}
+
+
 
 int main(int argc, char **argv)
 {
@@ -827,14 +1102,19 @@ int main(int argc, char **argv)
     char build_sha[256];
     sprintf(build_sha,"%s", __BUILD_SHA);
 
-    uint32_t nonce = 0;
+    uint64_t nonce = 0;
     uint32_t range = 1;
     uint32_t device = 0;
     char header[HEADERLEN];
     uint32_t len;
-    char my_solution[1024];
     int opt;
     bool cpuload = false;
+    //FILE *my_logfile;
+    //my_logfile = fopen("solution.log", "w");
+
+  // set defaults
+  SolverParams params;
+  fill_default_params(&params);
 
     memset(header, 0, sizeof(header));
     static const char *optString = "scb:c:d:E:h:k:m:n:r:U:u:v:w:y:Z:z:gb:";
@@ -848,15 +1128,15 @@ int main(int argc, char **argv)
                break;
            case 's':
                fprintf(stdout, "SYNOPSIS\n  %s \n[-d device] \n[-E 0-2] \n[-h hexheader] \n[-m trims] \n[-n nonce] \n[-r range] \n[-U seedAblocks] \n[-u seedAthreads] \n[-v seedBthreads] \n[-w Trimthreads] \n[-y Tailthreads] \n[-Z recoverblocks] \n[-z recoverthreads] \n[-g debug] \n[-c cpu none blocking]\n", argv[0]);
-               fprintf(stdout, "\n DEFAULTS\n  %s -d %d -E %d -h \"\" -m %d -n %d -r %d -U %d -u %d -v %d -w %d -y %d -Z %d -z %d\n", argv[0], device, tp.expand, tp.ntrims, nonce, range, tp.genA.blocks, tp.genA.tpb, tp.genB.tpb, tp.trim.tpb, tp.tail.tpb, tp.recover.blocks, tp.recover.tpb);
+               fprintf(stdout, "\n DEFAULTS\n  %s -d %d -E %d -h \"\" -m %d -n %zd -r %d -U %d -u %d -v %d -w %d -y %d -Z %d -z %d\n", argv[0], device, tp.expand, tp.ntrims, nonce, range, tp.genA.blocks, tp.genA.tpb, tp.genB.tpb, tp.trim.tpb, tp.tail.tpb, tp.recover.blocks, tp.recover.tpb);
                fprintf(stdout, "Build version  : %s by %s source_sha256: %s\n", bversion, buildby,build_sha);
                fprintf(stdout, "Build date: %s\n", bdate);
                exit(0);
            case 'd':
-               device = atoi(optarg);
+               params.device = atoi(optarg);
                break;
            case 'E':
-               tp.expand = atoi(optarg);
+               params.expand = atoi(optarg);
                break;
            case 'g':
                 will_debug = true;
@@ -869,40 +1149,43 @@ int main(int argc, char **argv)
                }
                break;
            case 'n':
-               nonce = atoi(optarg);
+               nonce = strtoull(optarg, NULL, 10);
                break;
            case 'm':
-               tp.ntrims = atoi(optarg) & -2; // make even as required by solve()
+               params.ntrims = atoi(optarg) & -2; // make even as required by solve()
                break;
            case 'r':
                range = atoi(optarg);
                break;
            case 'U':
-               tp.genA.blocks = atoi(optarg);
+               params.genablocks = atoi(optarg); // genA.blocks
                break;
            case 'u':
-               tp.genA.tpb = atoi(optarg);
+               params.genatpb = atoi(optarg); // genA.tpb
                break;
            case 'v':
-               tp.genB.tpb = atoi(optarg);
+               params.genbtpb = atoi(optarg);
                break;
            case 'w':
-               tp.trim.tpb = atoi(optarg);
+               params.trimtpb = atoi(optarg);
                break;
            case 'y':
-               tp.tail.tpb = atoi(optarg);
+               params.tailtpb = atoi(optarg);
                break;
            case 'Z':
-               tp.recover.blocks = atoi(optarg);
+               params.recoverblocks = atoi(optarg);
                break;
            case 'z':
-               tp.recover.tpb = atoi(optarg);
+               params.recovertpb = atoi(optarg);
                break;
       }
     }
 
+    //will_debug = true;
+
     int nDevices;
     cudaGetDeviceCount(&nDevices);
+
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, device);
 
@@ -926,82 +1209,31 @@ int main(int argc, char **argv)
 
         fprintf(stdout, "%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
 
-        fprintf(stdout, "Looking for %d-cycle on cuckoo%d(\"%s\",%d", PROOFSIZE, NODEBITS, header, nonce);
+        fprintf(stdout, "Looking for %d-cycle on cuckoo%d(\"%s\",%zd", PROOFSIZE, NODEBITS, header, nonce);
 
         if (range > 1)
         {
-            fprintf(stdout, "-%d", nonce+range-1);
+            fprintf(stdout, "-%zd", nonce+range-1);
         }
         fprintf(stdout, ") with 50%% edges, %d*%d buckets, %d trims, and %d thread blocks.\n", NX, NY, tp.ntrims, NX);
     }
 
-    solver_ctx ctx(tp);
+    SolverCtx* ctx = create_solver_ctx(&params);
+    //solver_ctx ctx(tp);
 
     if (will_debug)
     {
-        uint64_t bytes = ctx.trimmer->globalbytes();
+        uint64_t bytes = ctx->trimmer.globalbytes();
         int unit;
 
         for (unit=0; bytes >= 10240; bytes>>=10,unit++) ;
 
         fprintf(stdout, "Using %d%cB of global memory.\n", (uint32_t)bytes, " KMGT"[unit]);
+
     }
 
-    uint32_t sum_n_sols = 0;
-
-    for (int r = 0; r < range; r++)
-    {
-        my_solution[0]=0;
-        ctx.set_header_nonce(header, sizeof(header), nonce + r);
-        
-        if (will_debug)
-        {
-            fprintf(stdout,"nonce %d k0 k1 k2 k3 %zx %zx %zx %zx\n", nonce+r, ctx.trimmer->sipkeys.k0, ctx.trimmer->sipkeys.k1, ctx.trimmer->sipkeys.k2, ctx.trimmer->sipkeys.k3);
-        }
-        
-        uint32_t n_sols = ctx.solve();
-        
-        for (unsigned s = 0; s < n_sols; s++)
-        {
-            uint32_t* prf = &ctx.sols[s * PROOFSIZE];
-            
-            for (uint32_t i = 0; i < PROOFSIZE; i++)
-            {
-                char temps[512];
-                temps[0]=0;
-                sprintf(temps," %jx",(uintmax_t)prf[i]);
-                strcat(my_solution, temps);
-            }
-            
-            sum_n_sols += n_sols;
-            fprintf(stdout,"Solution%s\n",my_solution);
-            my_solution[0]=0;
-            
-            if (will_debug)
-            {
-                int pow_rc = verify_solution(prf, &ctx.trimmer->sipkeys);
-            
-                if (pow_rc == POW_OK)
-                {
-                  fprintf(stdout, "Verified with cycle_hash ");
-                  unsigned char cycle_hash[32];
-                  blake2b((void *)cycle_hash, sizeof(cycle_hash), (const void *)prf, sizeof(proof), 0, 0);
-            
-                  for (int i=0; i<32; i++)
-                  {
-                      fprintf(stdout, "%02x", cycle_hash[i]);
-                  }
-                  fprintf(stdout, "\n");
-                }
-                else
-                {
-                    fprintf(stdout,"FAILED due to %s\n", errstr[pow_rc]);
-                }
-            }        
-        }
-    }
-    
-    fprintf(stdout, "%d total solutions with %d nonces\n", sum_n_sols,range);
+    run_solver(ctx, header, sizeof(header), nonce, range, NULL, NULL);
 
     return 0;
+
 }
