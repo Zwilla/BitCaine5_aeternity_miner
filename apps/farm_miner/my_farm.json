@@ -33,6 +33,7 @@
     }
   ],
   "mining_prio_0":"pool",
+  "no_microblocks":"no_pool_mining",
   "mining_prio_1":"solo",  
   "license_key": "555336767631314D6476557173763135597751497972655378314A545A31313431505143785350577766553D",
   "MinerConfigPath": "$HOME/BitCaine5/my_farm.conf"
