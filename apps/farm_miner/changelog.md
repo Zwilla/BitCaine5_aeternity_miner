@@ -1,3 +1,18 @@
+#21st December 2018
+
+New function:
+if you set on your config file this:
+```
+"no_microblocks":"no_pool_mining_send_report",   -> send a abuse
+"no_microblocks":"no_pool_mining",               -> switch to solo mining if no other pool is avail
+```
+it will stop mining on that pool, app will check both pool and real node value and switches to an other pool.
+
+## Done:
+* stratum auth
+* get the work
+* working on how to send the work, order of json sting
+
 #19th December 2018
 ```
 mining_pools array found size 1
