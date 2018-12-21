@@ -11,7 +11,7 @@ it will stop mining on that pool, app will check both pool and real node value a
 ## Done:
 * stratum auth
 * get the work
-* working on how to send the work, order of json sting
+* working on how to send the work, order of json string
 
 #19th December 2018
 ```
