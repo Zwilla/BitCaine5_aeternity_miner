@@ -1,0 +1,8 @@
+hspminer -> pool
+{
+	"id": 3,
+	"method": "mining.submit",
+	"params": ["ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ", " job id from the pool", "nonce", ["00c21fa0", "01376850", "01f26579", "032e62c7", "03c0761b", "04246556", "0439284e", "050dbe54", "056cf968", "059e6421", "061ddf64", "086bea1c", "08a09059", "0a1049e5", "0acb386b", "0c404ff8", "0d3abc38", "0d8e7c85", "0dca05ef", "0df26ddc", "0e29bece", "0e340dc8", "0f1569a9", "0f48bdd9", "0f82b6d8", "117e4d5c", "12179e75", "1430e78f", "153eebfe", "15c4df62", "17d67768", "18388407", "1888b529", "19e6e384", "1a01c074", "1aa6c0eb", "1ae77be8", "1b35a76c", "1b423467", "1bbaad7c", "1e4fd5d3", "1eeffadf"]]
+}
+
+need your support
