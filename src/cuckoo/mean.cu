@@ -57,6 +57,7 @@ const static uint32_t ROW_EDGES_B = NYZ * EPS_B;
 
 const static uint32_t EDGES_A = ROW_EDGES_A / NX;
 const static uint32_t EDGES_B = ROW_EDGES_B / NX;
+int global_device_id = 0;
 
 __constant__ uint2 recoveredges[PROOFSIZE];
 __constant__ uint2 e0 = {0,0};
@@ -519,7 +520,7 @@ struct edgetrimmer {
 
   uint32_t trim()
   {
-    
+
     cudaMemset(indexesE, 0, indexesSize);
     cudaMemset(indexesE2, 0, indexesSize);
 
@@ -556,7 +557,7 @@ struct edgetrimmer {
 
     if(will_debug)
     {
-        fprintf(stdout,"Seeding completed\n");
+        fprintf(stdout,"GPU[%d] Seeding completed\n", global_device_id);
     }
 
     if (abort) return false;
@@ -795,7 +796,7 @@ struct solver_ctx
 
           if(will_debug)
           {
-              fprintf(stdout, "%4d-cycle found\n", len);
+              fprintf(stdout, "GPU[%d] %4d-cycle found\n", global_device_id, len);
           }
 
           if (len == PROOFSIZE)
@@ -866,7 +867,7 @@ struct solver_ctx
       
       if(will_debug)
       {
-         fprintf(stdout, "findcycles edges %d time %d ms total %d ms\n", nedges, timems2, timems+timems2);
+         fprintf(stdout, "GPU[%d] findcycles edges %d time %d ms total %d ms\n", global_device_id, nedges, timems2, timems+timems2);
       }
       
       return sols.size() / PROOFSIZE;
@@ -894,10 +895,16 @@ CALL_CONVENTION int run_solver(SolverCtx* ctx,
 {
   uint64_t time0, time1;
   uint32_t timems;
+  SolverParams params;
+
+  uint64_t time_all_start,time_all_end;
+  uint32_t time_ms_all;
+
   uint32_t sumnsols = 0;
   int device_id;
   char my_solution[1024];
 
+  time_all_start = timestamp();
   if(will_debug)
   {
     if (stats != NULL)
@@ -924,24 +931,35 @@ CALL_CONVENTION int run_solver(SolverCtx* ctx,
   }
 
   uint32_t nsols = 0;
+  will_debug = true;
   
   for (uint32_t r = 0; r < range; r++)
   {
-
     if(will_debug)
     {
         time0 = timestamp();
         ctx->setheadernonce(header, header_length, nonce + r);
-        print_log("nonce %llu k0 k1 k2 k3 %llx %llx %llx %llx\n", nonce+r, ctx->trimmer.sipkeys.k0, ctx->trimmer.sipkeys.k1, ctx->trimmer.sipkeys.k2, ctx->trimmer.sipkeys.k3);
+        print_log("GPU[%d] nonce %llu k0 k1 k2 k3 %llx %llx %llx %llx\n",global_device_id, nonce+r, ctx->trimmer.sipkeys.k0, ctx->trimmer.sipkeys.k1, ctx->trimmer.sipkeys.k2, ctx->trimmer.sipkeys.k3);
         nsols = ctx->solve();
         time1 = timestamp();
         timems = (time1 - time0) / 1000000;
-        print_log("Time: %d ms\n", timems);
+        print_log("GPU[%d] Time: %d ms\n",global_device_id, timems);
+        if (timems == 0)
+        {
+            print_log("GPU[%d] We stop and retry because time to low: is %d ms\n",global_device_id, timems); exit(-1);
+        }
     }
     else
     {
+        time0 = timestamp();
         ctx->setheadernonce(header, header_length, nonce + r);
         nsols = ctx->solve();
+        time1 = timestamp();
+        timems = (time1 - time0) / 1000000;
+        if (timems == 0)
+        {
+            print_log("GPU[%d] We stop and retry because time to low: is %d ms\n",global_device_id, timems); exit(-1);
+        }
     }
 
     char temps[512];
@@ -980,7 +998,7 @@ CALL_CONVENTION int run_solver(SolverCtx* ctx,
           int pow_rc = verify(prf, &ctx->trimmer.sipkeys);
           if (pow_rc == POW_OK)
           {
-            print_log("Verified with cyclehash ");
+            print_log("GPU[%d] Verified with cyclehash ",global_device_id);
             unsigned char cyclehash[32];
             blake2b((void *)cyclehash, sizeof(cyclehash), (const void *)prf, sizeof(proof), 0, 0);
 
@@ -992,7 +1010,7 @@ CALL_CONVENTION int run_solver(SolverCtx* ctx,
           }
           else
           {
-              print_log("FAILED due to %s\n", errstr[pow_rc]);
+              print_log("GPU[%d] FAILED due to %s\n", global_device_id, errstr[pow_rc]);
           }
       }
 
@@ -1012,7 +1030,11 @@ CALL_CONVENTION int run_solver(SolverCtx* ctx,
 
   } // end for loop
 
-  print_log("%d total solutions of %d nonces\n", sumnsols, range);
+  time_all_end = timestamp();
+  time_ms_all = (time_all_end - time_all_start) / 1000000;
+
+  print_log("GPU[%d] %d total solutions of %d nonces Time: %d ms\n",global_device_id, sumnsols, range, time_ms_all);
+  
   return sumnsols > 0;
 }
 
@@ -1133,6 +1155,7 @@ int main(int argc, char **argv)
                exit(0);
            case 'd':
                params.device = atoi(optarg);
+               global_device_id = params.device;
                break;
            case 'E':
                params.expand = atoi(optarg);
@@ -1186,9 +1209,10 @@ int main(int argc, char **argv)
     cudaGetDeviceCount(&nDevices);
 
     cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, device);
+    cudaGetDeviceProperties(&prop, global_device_id);
 
-    cudaSetDevice(device);
+    cudaSetDevice(global_device_id);
+    
     if (cpuload)
     {
         // may be for old and pure systems but not for highspeed machines!!
@@ -1206,9 +1230,9 @@ int main(int argc, char **argv)
         int dunit;
         for (dunit=0; dbytes >= 10240; dbytes>>=10,dunit++) ;
 
-        fprintf(stdout, "%s with %d%cB @ %d bits x %dMHz\n", prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
+        fprintf(stdout, "GPU[%d] %s with %d%cB @ %d bits x %dMHz\n", global_device_id, prop.name, (uint32_t)dbytes, " KMGT"[dunit], prop.memoryBusWidth, prop.memoryClockRate/1000);
 
-        fprintf(stdout, "Looking for %d-cycle on cuckoo%d(\"%s\",%zd", PROOFSIZE, NODEBITS, header, nonce);
+        fprintf(stdout, "GPU[%d] Looking for %d-cycle on cuckoo%d(\"%s\",%zd", global_device_id,PROOFSIZE, NODEBITS, header, nonce);
 
         if (range > 1)
         {
