@@ -2,21 +2,21 @@
   "compute_node": [
     {
       "cn_ip"       : "172.16.16.124",
-      "auto_detect" : "all",
+      "auto_detect" : "gpu",
       "card_type"   : "nvidia",
       "card_port"   : "all"
     },
     {
       "cn_ip"       : "172.16.16.128",
-      "auto_detect" : "3",
+      "auto_detect" : "gpu",
       "card_type"   : "nvidia",
-      "card_port"   : "0,1,4"
+      "card_port"   : "all"
     },
     {
       "cn_ip"       : "172.16.16.131",
-      "auto_detect" : "all cards",
+      "auto_detect" : "gpu",
       "card_type"   : "amd",
-      "card_port"   : "all"
+      "card_port"   : "0,1,5"
     },
     {
       "cn_ip"       : "172.16.16.131",
@@ -25,16 +25,26 @@
       "cpu_use"     : "75%"
     }
   ],
-  "mining_pool": [
+  "mining_pools": [
     {
       "pool":"stratum+tcp://ae.f2pool.com:7898",
+      "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
+      "pass":"x"
+    },
+    {
+      "pool":"stratum+tcp://ae-pool.beepool.org:9505",
+      "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
+      "pass":"x"
+    },
+    {
+      "pool":"stratum+tcp://ae.uupool.cn:6210",
       "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
       "pass":"x"
     }
   ],
   "mining_prio_0":"pool",
-  "no_microblocks":"no_pool_mining",
-  "mining_prio_1":"solo",  
+  "mining_prio_1":"solo",
+  "no_micro_blocks":"no_pool_mining",
   "license_key": "555336767631314D6476557173763135597751497972655378314A545A31313431505143785350577766553D",
   "MinerConfigPath": "$HOME/BitCaine5/my_farm.conf"
 }
