@@ -5,6 +5,7 @@
  * This software is covered by the FAIR MINING license
  */
 
+
 #include <stdio.h>
 #include <string.h>
 #include <vector>
