@@ -49,5 +49,6 @@
   "mining_prio_1":"solo",
   "no_micro_blocks":"no_pool_mining",
   "license_key": "555336767631314D6476557173763135597751497972655378314A545A31313431505143785350577766553D",
-  "MinerConfigPath": "$HOME/BitCaine5/my_farm.conf"
+  "MinerConfigPath": "$HOME/BitCaine5/my_farm.conf",
+  "BitCaine5_app_sig" : "8bfabf0c3adb980f5bfd86162e5acf610edf7050b5d96ece9845857e2410a1e9"
 }
