@@ -29,17 +29,20 @@
     {
       "pool":"stratum+tcp://ae.f2pool.com:7898",
       "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
-      "pass":"x"
+      "pass":"x",
+      "pool_updates":"0"
     },
     {
       "pool":"stratum+tcp://ae-pool.beepool.org:9505",
       "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
-      "pass":"x"
+      "pass":"x",
+      "pool_updates":"5"
     },
     {
       "pool":"stratum+tcp://ae.uupool.cn:6210",
       "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
-      "pass":"x"
+      "pass":"x",
+      "pool_updates":"15"
     }
   ],
   "mining_prio_0":"pool",
