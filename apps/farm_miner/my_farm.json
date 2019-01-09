@@ -27,28 +27,31 @@
   ],
   "mining_pools": [
     {
-      "pool":"stratum+tcp://ae.f2pool.com:7898",
-      "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
-      "pass":"x",
-      "pool_updates":"0"
+      "pool"         : "stratum+tcp://ae.f2pool.com:7898",
+      "user"         : "ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
+      "pass"         : "x",
+      "worker"       : "worker_my_ip",
+      "pool_updates" :"0"
     },
     {
-      "pool":"stratum+tcp://ae-pool.beepool.org:9505",
-      "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
-      "pass":"x",
-      "pool_updates":"5"
+      "pool"         : "stratum+tcp://ae-pool.beepool.org:9505",
+      "user"         : "ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
+      "pass"         : "x",
+      "worker"       : "worker_my_ip",
+      "pool_updates" : "5"
     },
     {
-      "pool":"stratum+tcp://ae.uupool.cn:6210",
-      "user":"ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
-      "pass":"x",
-      "pool_updates":"15"
+      "pool"         : "stratum+tcp://ae.uupool.cn:6210",
+      "user"         : "ak_XoongvC5xDqBCwdLr3ok1SzK3xEMFVwQ1sA7vj1guBd99HFjQ",
+      "pass"         : "x",
+      "worker"       : "worker_my_ip",
+      "pool_updates" : "15"
     }
   ],
-  "mining_prio_0":"pool",
-  "mining_prio_1":"solo",
-  "no_micro_blocks":"no_pool_mining",
-  "license_key": "555336767631314D6476557173763135597751497972655378314A545A31313431505143785350577766553D",
-  "MinerConfigPath": "$HOME/BitCaine5/my_farm.conf",
+  "mining_prio_0"     : "pool",
+  "mining_prio_1"     : "solo",
+  "no_micro_blocks"   : "no_pool_mining",
+  "license_key"       : "555336767631314D6476557173763135597751497972655378314A545A31313431505143785350577766553D",
+  "MinerConfigPath"   : "$HOME/BitCaine5/my_farm.conf",
   "BitCaine5_app_sig" : "8bfabf0c3adb980f5bfd86162e5acf610edf7050b5d96ece9845857e2410a1e9"
 }
